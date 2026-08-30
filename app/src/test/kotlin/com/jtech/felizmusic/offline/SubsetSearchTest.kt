@@ -61,7 +61,7 @@ class SubsetSearchTest {
 
     // --- content filters + category assembly (categories.mjs + api.mjs /search) --------------------
 
-    // female primary
+    // acappella primary
     private val fem = SubArtist("a_fem", "Franciska", null, isAcappella = true, isChasid = false, isKidZone = false)
     private val leiner = SubArtist("a_leiner", "Simcha Leiner", null, isAcappella = false, isChasid = false, isKidZone = false)
     private val miami = SubArtist("a_miami", "Miami Boys Choir", null, isAcappella = false, isChasid = false, isKidZone = false)
@@ -76,8 +76,8 @@ class SubsetSearchTest {
     private val corpus = SubsetCorpus(
         artists = listOf(fem, leiner, miami, kids),
         tracks = listOf(
-            track("song_femm00", "Kol Isha", "a_fem"),                 // female primary
-            track("song_feat00", "Kol Shiru (feat. Franciska)", "a_leiner"), // male primary, female credited -> involved
+            track("song_femm00", "Kol Isha", "a_fem"),                 // acappella primary
+            track("song_feat00", "Kol Shiru (feat. Franciska)", "a_leiner"), // non-acappella primary; no credit inference
             track("song_male00", "Kol Nidrei", "a_miami"),
             track("song_kid000", "Kol Sasson", "a_kids"),               // KidZone
             track("video_vid00", "Kol Live", "a_miami", isVideo = true), // a VIDEO
@@ -93,14 +93,14 @@ class SubsetSearchTest {
         homeRank = emptyList(),
         zemerPlaylists = emptyList(),
         zemerItems = emptyList(),
-        blocked = SubBlocked(emptySet(), emptySet()),
+        blocked = SubBlocked(emptySet()),
     )
     private val matcher = buildFemaleMatcher(corpus.artists)
 
-    private fun songIds(onlyAcappella: Boolean = true, blockVideos: Boolean = false, kidZone: Boolean = false) =
+    private fun songIds(onlyAcappella: Boolean = false, blockVideos: Boolean = false, kidZone: Boolean = false) =
         offlineSearch(corpus, matcher, "kol", 8, onlyAcappella, blockVideos, kidZone).categories.songs.map { it.videoId }.toSet()
 
-    private fun videoIds(onlyAcappella: Boolean = true, blockVideos: Boolean = false, kidZone: Boolean = false) =
+    private fun videoIds(onlyAcappella: Boolean = false, blockVideos: Boolean = false, kidZone: Boolean = false) =
         offlineSearch(corpus, matcher, "kol", 8, onlyAcappella, blockVideos, kidZone).categories.videos.map { it.videoId }.toSet()
 
     @Test
@@ -112,21 +112,22 @@ class SubsetSearchTest {
 
     @Test
     fun `album vs single split routes by type`() {
-        val cats = offlineSearch(corpus, matcher, "zbumba", 8, onlyAcappella = true, blockVideos = false, kidZone = false).categories
+        val cats = offlineSearch(corpus, matcher, "zbumba", 8, onlyAcappella = false, blockVideos = false, kidZone = false).categories
         assertEquals(setOf("MPREb_albm00"), cats.albums.map { it.id }.toSet())
         assertEquals(setOf("MPREb_sngl00"), cats.singles.map { it.id }.toSet())
     }
 
     @Test
-    fun `onlyAcappella=false drops female-primary AND female-credited tracks`() {
-        val open = songIds(onlyAcappella = true)
-        assertTrue("Kol Isha present when female allowed", "song_femm00" in open)
-        assertTrue("feat. Franciska present when female allowed", "song_feat00" in open)
+    fun `onlyAcappella keeps the acappella artist and drops non-acappella tracks`() {
+        val open = songIds(onlyAcappella = false)
+        assertTrue("acappella primary present when unrestricted", "song_femm00" in open)
+        assertTrue("male track present when unrestricted", "song_male00" in open)
+        assertTrue("credited-on-male track present when unrestricted (no credit inference)", "song_feat00" in open)
 
-        val blocked = songIds(onlyAcappella = false)
-        assertFalse("female primary dropped", "song_femm00" in blocked)
-        assertFalse("female-credited (feat.) dropped", "song_feat00" in blocked)
-        assertTrue("male track survives", "song_male00" in blocked)
+        val restricted = songIds(onlyAcappella = true)
+        assertTrue("acappella primary kept", "song_femm00" in restricted)
+        assertFalse("non-acappella primary dropped", "song_male00" in restricted)
+        assertFalse("credited-on-male track dropped (owning artist is not acappella)", "song_feat00" in restricted)
     }
 
     @Test
@@ -149,9 +150,9 @@ class SubsetSearchTest {
             artists = listOf(miami), tracks = listOf(hi, lo), albums = emptyList(), albumTracks = emptyList(),
             artistPlaylists = emptyList(), community = emptyList(), communityTracks = emptyList(),
             homeRank = emptyList(), zemerPlaylists = emptyList(), zemerItems = emptyList(),
-            blocked = SubBlocked(emptySet(), emptySet()),
+            blocked = SubBlocked(emptySet()),
         )
-        val songs = offlineSearch(c, buildFemaleMatcher(c.artists), "aleph beis gimel", 8, onlyAcappella = true, blockVideos = false, kidZone = false)
+        val songs = offlineSearch(c, buildFemaleMatcher(c.artists), "aleph beis gimel", 8, onlyAcappella = false, blockVideos = false, kidZone = false)
             .categories.songs.map { it.videoId }.toSet()
         assertTrue("full-coverage hit kept", "cov_high000" in songs)
         assertFalse("single-word hit dropped by the coverage gate", "cov_low0000" in songs)

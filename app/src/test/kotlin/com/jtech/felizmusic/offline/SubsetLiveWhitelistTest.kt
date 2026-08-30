@@ -56,7 +56,7 @@ class SubsetLiveWhitelistTest {
             SubZemerItem("z1", "track", "v2", 1),
             SubZemerItem("z1", "album", "AL2", 2),
         ),
-        blocked = SubBlocked(emptySet(), emptySet()),
+        blocked = SubBlocked(emptySet()),
     )
 
     // --- freshness gate ---

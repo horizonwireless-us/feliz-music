@@ -93,13 +93,13 @@ class SubsetDecoderTest {
 
         val blocked = SubsetDecoder.decodeBlocked("""{"global":["jvEXWajQUlQ"],"female":["0ynSwHjCOSQ","6V8hM6RbaAI"]}""")
         assertTrue("jvEXWajQUlQ" in blocked.global)
-        assertEquals(2, blocked.female.size)
-        assertTrue("6V8hM6RbaAI" in blocked.female)
+        // `female` is no longer decoded — blocked ids are global-only in the Feliz contract.
+        assertTrue(blocked.global.size >= 1)
     }
 
     @Test
     fun `podcast channels decode with packed flag bits`() {
-        // Real rows sampled from live /subset/podcastchannels (flags: bit0=female, bit1=kidZone, bit2=verified).
+        // Real rows sampled from live /subset/podcastchannels (flags: bit0=isAcappella, bit1=kidZone, bit2=verified).
         val c = SubsetDecoder.decodePodcastChannels(
             """[["UCBZlDcGaHknNIsPlmENwgdA","Aaron Benedict","https://yt3/x=w544",4,1,79],
                 ["UCfem","Fem Kid Verified","https://t",7,3,10]]""",

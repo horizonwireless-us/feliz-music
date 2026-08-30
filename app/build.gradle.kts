@@ -18,6 +18,20 @@ android {
     namespace = "com.jtech.felizmusic"
     compileSdk = 36
 
+    // Stable = com.jtech.felizmusic; Nightly = com.jtech.felizmusic.nightly (separate Firebase
+    // registration, separate signing key, installs alongside stable with independent local data).
+    flavorDimensions += "channel"
+    productFlavors {
+        create("stable") {
+            dimension = "channel"
+        }
+        create("nightly") {
+            dimension = "channel"
+            applicationIdSuffix = ".nightly"
+            versionNameSuffix = "-nightly"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.jtech.felizmusic"
         minSdk = 26

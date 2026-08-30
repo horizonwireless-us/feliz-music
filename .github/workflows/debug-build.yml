@@ -62,11 +62,11 @@ jobs:
             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Assemble debug
-        run: ./gradlew assembleDebug -PfelizCipherPath=.deps/feliz-cipher -PfirebaseProjectId=feliz-music-admin
+        run: ./gradlew :app:assembleStableDebug -PfelizCipherPath=.deps/feliz-cipher -PfirebaseProjectId=feliz-music-admin
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/stable/debug/*.apk
           if-no-files-found: error

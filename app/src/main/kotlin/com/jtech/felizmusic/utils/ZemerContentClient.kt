@@ -107,17 +107,16 @@ object ZemerContentClient {
     }
 
     /**
-     * `/blockedContentIds` → id→reason map, rebuilt from the server's pre-bucketed `{global, female}`
-     * (disabled entries already dropped, unknown reasons already folded into `global` — which the app
-     * already treats as "hide for everyone", so this is behavior-preserving). Empty is a legitimate state.
+     * `/blockedContentIds` → id→reason map. The Feliz contract is global-only; any legacy `female`
+     * bucket the server may still send is normalized to `global` (never stored as a female reason).
+     * Empty is a legitimate state.
      */
     suspend fun blockedIds(): Map<String, String> {
         val dto = json.decodeFromString(ContentBlockedDto.serializer(), getText("/blockedContentIds", SMALL_TIMEOUT_MS))
         val map = buildMap {
-            dto.female.forEach { id -> id.trim().takeIf { it.isNotEmpty() }?.let { put(it, "female") } }
-            dto.global.forEach { id -> id.trim().takeIf { it.isNotEmpty() }?.let { put(it, "global") } }
+            (dto.global + dto.female).forEach { id -> id.trim().takeIf { it.isNotEmpty() }?.let { put(it, REASON_GLOBAL) } }
         }
-        Timber.d("ZemerContentClient: /blockedContentIds %d overrides (female=%d, global=%d)", map.size, dto.female.size, dto.global.size)
+        Timber.d("ZemerContentClient: /blockedContentIds %d overrides (all global)", map.size)
         return map
     }
 
@@ -177,7 +176,10 @@ data class ContentVersionDto(
     val gate: Long? = null,
 )
 
-/** `/blockedContentIds` — already bucketed by reason, disabled entries already dropped server-side. */
+/**
+ * `/blockedContentIds` — pre-bucketed server-side. `female` is retained only so a legacy server
+ * response can be normalized to global; the Feliz contract has no female reason.
+ */
 @Serializable
 data class ContentBlockedDto(
     val global: List<String> = emptyList(),

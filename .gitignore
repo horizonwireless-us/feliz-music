@@ -93,6 +93,9 @@ google-services.json
 *.jks
 *.keystore
 
+# CI cipher checkout (pinned by deps/cipher.lock) — never commit
+.deps/
+
 # Local credentials / secrets — never commit
 innertube_cookie.txt
 *.cookie.txt

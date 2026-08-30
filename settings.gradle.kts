@@ -32,8 +32,12 @@ include(":innertube")
 include(":lrclib")
 include(":simpmusic")
 
-// Cipher library (sibling checkout)
-includeBuild("../zemer-cipher-master") {
+// Cipher library (sibling checkout). The local default is the sibling
+// ../feliz-cipher checkout; CI overrides it with -PfelizCipherPath=.deps/feliz-cipher
+// after checking out the exact commit pinned in deps/cipher.lock.
+val felizCipherPath = providers.gradleProperty("felizCipherPath")
+    .getOrElse("../feliz-cipher")
+includeBuild(felizCipherPath) {
     dependencySubstitution {
         substitute(module("com.zemer:cipher")).using(project(":library"))
     }

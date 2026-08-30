@@ -38,13 +38,22 @@ esac
 
 if [ -d "$DEST/.git" ]; then
     echo "Updating existing cipher checkout at $DEST_REL"
-    git -C "$DEST" fetch --depth 1 origin "$COMMIT" 2>/dev/null || git -C "$DEST" fetch origin "$COMMIT"
-    git -C "$DEST" checkout --detach "$COMMIT"
+    git -C "$DEST" fetch origin main
+    if ! git -C "$DEST" checkout --detach "$COMMIT" 2>/dev/null; then
+        # Lock commit not on main (e.g. an older pinned revision): fetch it directly.
+        git -C "$DEST" fetch origin "$COMMIT"
+        git -C "$DEST" checkout --detach "$COMMIT"
+    fi
 else
     echo "Cloning cipher commit $COMMIT into $DEST_REL"
     mkdir -p "$(dirname "$DEST")"
-    git clone --filter=blob:none "$REPO" "$DEST"
-    git -C "$DEST" checkout --detach "$COMMIT"
+    # Full clone (no --filter): the checkout below must never need an object fetch,
+    # because GitHub refuses lazy/raw-SHA object requests from unauthenticated clones.
+    git clone "$REPO" "$DEST"
+    if ! git -C "$DEST" checkout --detach "$COMMIT" 2>/dev/null; then
+        git -C "$DEST" fetch origin "$COMMIT"
+        git -C "$DEST" checkout --detach "$COMMIT"
+    fi
 fi
 
 ACTUAL="$(git -C "$DEST" rev-parse HEAD)"

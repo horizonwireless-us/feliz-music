@@ -24,7 +24,7 @@ data class SubsetCorpus(
     // Podcasts (server reply 4 — the on-device subset). Defaulted empty so a pre-podcast snapshot (or a
     // test corpus) needs no podcast shards; the reads below just return nothing. Pre-gated to approved
     // channels server-side (a show is present iff its host UC is approved, or it is grandfathered
-    // channel-less); female/KidZone stay per item (channel flag + the `blocked` shard exceptions).
+    // channel-less); acappella/KidZone stay per item (channel flag + the `blocked` shard exceptions).
     val podcastChannels: List<SubPodcastChannel> = emptyList(),
     val podcasts: List<SubPodcastShow> = emptyList(),
     val podcastEpisodes: List<SubPodcastEpisode> = emptyList(),

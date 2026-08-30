@@ -34,14 +34,14 @@ fun SubsetCorpus.withLiveWhitelist(live: Map<String, Boolean>): SubsetCorpus {
     var changed = false
     val overlaidArtists = ArrayList<SubArtist>(artists.size)
     for (a in artists) {
-        val female = live[a.id]
-        if (female == null) {
+        val liveAcappella = live[a.id]
+        if (liveAcappella == null) {
             changed = true // de-whitelisted → dropped
             continue
         }
-        if (female != a.isAcappella) {
+        if (liveAcappella != a.isAcappella) {
             changed = true
-            overlaidArtists.add(a.copy(isAcappella = female))
+            overlaidArtists.add(a.copy(isAcappella = liveAcappella))
         } else {
             overlaidArtists.add(a)
         }
@@ -112,12 +112,12 @@ fun SubsetCorpus.withLivePodcastWhitelist(liveChannels: Set<String>): SubsetCorp
 /**
  * Cheap order-independent fingerprint of the live overlay input, so [OfflineReadProvider] can keep
  * its decoded-corpus cache while detecting a whitelist sync landing mid-process (membership or a
- * female flag changing must rebuild the overlaid corpus). Covers both overlays: the artist map and
+ * acappella flag changing must rebuild the overlaid corpus). Covers both overlays: the artist map and
  * the podcast-channel allow-set.
  */
 fun liveWhitelistFingerprint(live: Map<String, Boolean>, livePodcastChannels: Set<String> = emptySet()): Long {
     var fp = live.size.toLong() + livePodcastChannels.size.toLong() * 17L
-    for ((id, female) in live) fp += id.hashCode().toLong() * (if (female) 31L else 7L)
+    for ((id, isAcappella) in live) fp += id.hashCode().toLong() * (if (isAcappella) 31L else 7L)
     for (id in livePodcastChannels) fp += id.hashCode().toLong() * 13L
     return fp
 }

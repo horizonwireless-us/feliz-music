@@ -10,10 +10,9 @@ import org.junit.Test
  *  - the channel-vs-show keying bug: the podcast whitelist is keyed by the host CHANNEL id (`UC…`), but
  *    subscribed rows were being filtered by the SHOW id (`MPSP…`) against it, which never matches — so
  *    once the whitelist populated, the subscribed list and New Episodes went permanently empty.
- *  - the female gate: display surfaces must hide a wholly-female host channel when female filtering is on
- *    (they were using membership-only `isChannelWhitelisted`, leaking a female channel into the library).
- * [PodcastLibrarySources.subscribedPodcastAllowed]/[podcastChannelAllowed] key off the channel id AND
- * apply the female gate.
+ *  - podcasts ignore onlyAcappella: display surfaces apply pure channel membership (isFemale was
+ *    removed from the podcast contract).
+ * [PodcastLibrarySources.subscribedPodcastAllowed]/[podcastChannelAllowed] key off the channel id.
  */
 class PodcastLibrarySourcesTest {
 
@@ -21,22 +20,21 @@ class PodcastLibrarySourcesTest {
         PodcastWhitelistCache.updateAll(entries.toList())
     }
 
-    private fun channel(id: String, female: Boolean = false) =
-        PodcastWhitelistEntity(channelId = id, name = id, isAcappella = female)
+    private fun channel(id: String, isKidZone: Boolean = false) =
+        PodcastWhitelistEntity(channelId = id, name = id, isKidZone = isKidZone)
 
-    /** Filters ON, female not allowed — the strictest state (the one the leak showed under). */
-    private val strict = ContentFilterConfig(filtersEnabled = true, acappellaOnly = false)
+    private val filtersOn = ContentFilterConfig(filtersEnabled = true, acappellaOnly = true)
 
     @Test
     fun `an approved host channel passes`() {
         seed(channel("UCapproved"))
-        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCapproved", strict))
+        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCapproved", filtersOn))
     }
 
     @Test
     fun `a non-approved channel is dropped`() {
         seed(channel("UCapproved"))
-        assertFalse(PodcastLibrarySources.subscribedPodcastAllowed("UCother", strict))
+        assertFalse(PodcastLibrarySources.subscribedPodcastAllowed("UCother", filtersOn))
     }
 
     @Test
@@ -44,35 +42,26 @@ class PodcastLibrarySourcesTest {
         // MPSP… is a show id; the cache holds only channel ids, so passing a show id must be false —
         // which is exactly why the filter has to use channelId, not the PodcastEntity's own id.
         seed(channel("UCapproved"))
-        assertFalse(PodcastLibrarySources.subscribedPodcastAllowed("MPSPshow123", strict))
+        assertFalse(PodcastLibrarySources.subscribedPodcastAllowed("MPSPshow123", filtersOn))
     }
 
     @Test
     fun `a null channelId is kept (grandfathered or not-yet-synced subscription)`() {
         seed(channel("UCapproved"))
-        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed(null, strict))
+        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed(null, filtersOn))
     }
 
     @Test
-    fun `a wholly-female approved channel is hidden when female filtering is on (the leak)`() {
-        seed(channel("UCfemale", female = true))
-        assertFalse(PodcastLibrarySources.subscribedPodcastAllowed("UCfemale", strict))
-        assertFalse(PodcastLibrarySources.podcastChannelAllowed("UCfemale", strict))
+    fun `podcasts ignore onlyAcappella - kids and plain channels both pass`() {
+        seed(channel("UCkids", isKidZone = true), channel("UCplain"))
+        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCkids", filtersOn))
+        assertTrue(PodcastLibrarySources.podcastChannelAllowed("UCkids", filtersOn))
+        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCplain", filtersOn))
     }
 
     @Test
-    fun `a wholly-female approved channel passes when female singers are allowed`() {
-        seed(channel("UCfemale", female = true))
-        val onlyAcappella = ContentFilterConfig(filtersEnabled = true, acappellaOnly = true)
-        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCfemale", onlyAcappella))
-        assertTrue(PodcastLibrarySources.podcastChannelAllowed("UCfemale", onlyAcappella))
-    }
-
-    @Test
-    fun `a wholly-female approved channel passes when filtering is off entirely`() {
-        seed(channel("UCfemale", female = true))
-        val filtersOff = ContentFilterConfig(filtersEnabled = false, acappellaOnly = false)
-        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCfemale", filtersOff))
-        assertTrue(PodcastLibrarySources.podcastChannelAllowed("UCfemale", filtersOff))
+    fun `a non-member channel never passes the display gate`() {
+        seed(channel("UCapproved"))
+        assertFalse(PodcastLibrarySources.podcastChannelAllowed("UCother", filtersOn))
     }
 }

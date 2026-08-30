@@ -1,0 +1,75 @@
+package com.jtech.felizmusic.search
+
+import com.metrolist.innertube.models.AlbumItem
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+/**
+ * The Zemer nav-route builders + the search telemetry wire value. Both are contracts: the routes are
+ * parsed by NavigationBuilder's argument declarations, and the `provider` value is what the tracking
+ * server accepts ("zemer" — anything else is stored NULL), so a rename/typo here silently breaks
+ * navigation or NULLs a dashboard dimension.
+ */
+class ZemerRoutesTest {
+    // The search route builder: the ONE encoding of "search/<query>?filter=" (4 hand-rolled copies
+    // drifted before). Query is URL-encoded free text; the filter tokens are the shared vocabulary
+    // the results ViewModel maps - a token rename must break here, not fall through to All.
+    @Test
+    fun searchRoute_encodesQueryAndCarriesFilter() {
+        assertEquals("search/hello", zemerSearchRoute("hello"))
+        assertEquals("search/avraham+fried", zemerSearchRoute("avraham fried"))
+        assertEquals("search/hello?filter=episodes", zemerSearchRoute("hello", SEARCH_FILTER_EPISODES))
+        assertEquals("search/x?filter=songs", zemerSearchRoute("x", SEARCH_FILTER_SONGS))
+        assertEquals("search/x?filter=albums", zemerSearchRoute("x", SEARCH_FILTER_ALBUMS))
+    }
+
+
+    private val album = AlbumItem(
+        browseId = "MPRE1",
+        playlistId = "OLAK1",
+        title = "T",
+        artists = null,
+        year = null,
+        thumbnail = "th",
+    )
+
+    @Test
+    fun `playlists route through the server path`() {
+        assertEquals("online_playlist/PL1?zemer=true", zemerPlaylistRoute("PL1"))
+    }
+
+    @Test
+    fun `community flag adds community=true so plays tag community not playlist`() {
+        assertEquals("online_playlist/PL1?zemer=true&community=true", zemerPlaylistRoute("PL1", community = true))
+    }
+
+    @Test
+    fun `albums route through the server path with the card's playlistId`() {
+        assertEquals("album/MPRE1?zemer=true&playlistId=OLAK1", zemerAlbumRoute(album))
+    }
+
+    @Test
+    fun `genre routes are the raw slugs (vocabulary is url-safe by contract)`() {
+        assertEquals("genres", zemerGenresRoute())
+        assertEquals("genre/nigunim", zemerGenreRoute("nigunim"))
+        assertEquals("genre/shavuos-simchas-torah", zemerGenreRoute("shavuos-simchas-torah"))
+    }
+
+    @Test
+    fun `genre section see-all routes carry the slug and section`() {
+        assertEquals("genre_section/nigunim?section=albums", zemerGenreSectionRoute("nigunim", GENRE_SECTION_ALBUMS))
+        assertEquals("genre_section/purim?section=singles", zemerGenreSectionRoute("purim", GENRE_SECTION_SINGLES))
+    }
+
+    @Test
+    fun `podcast genre routes are the raw slugs, matching the registered destinations`() {
+        assertEquals("podcast_genres", zemerPodcastGenresRoute())
+        assertEquals("podcast_genre/parsha", zemerPodcastGenreRoute("parsha"))
+        assertEquals("podcast_genre/machshava-mussar", zemerPodcastGenreRoute("machshava-mussar"))
+    }
+
+    @Test
+    fun `the search telemetry provider wire value is pinned`() {
+        assertEquals("zemer", com.jtech.felizmusic.viewmodels.SEARCH_TRACKED_PROVIDER)
+    }
+}

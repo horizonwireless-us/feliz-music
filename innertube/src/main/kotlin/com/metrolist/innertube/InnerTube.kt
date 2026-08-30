@@ -12,6 +12,7 @@ import com.metrolist.innertube.models.body.CreatePlaylistBody
 import com.metrolist.innertube.models.body.EditPlaylistBody
 import com.metrolist.innertube.models.body.FeedbackBody
 import com.metrolist.innertube.models.body.GetQueueBody
+import com.metrolist.innertube.models.body.GetSearchSuggestionsBody
 import com.metrolist.innertube.models.body.GetTranscriptBody
 import com.metrolist.innertube.models.body.LikeBody
 import com.metrolist.innertube.models.body.NextBody
@@ -45,6 +46,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import okhttp3.ConnectionPool
 import okhttp3.Dispatcher
+import java.net.Proxy
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -67,6 +69,15 @@ class InnerTube {
             cookieMap = if (value == null) emptyMap() else parseCookieString(value)
         }
     private var cookieMap = emptyMap<String, String>()
+
+    var proxy: Proxy? = null
+        set(value) {
+            field = value
+            httpClient.close()
+            httpClient = createClient()
+        }
+    
+    var proxyAuth: String? = null
 
     var useLoginForBrowse: Boolean = false
 
@@ -96,6 +107,19 @@ class InnerTube {
                 connectTimeout(5, TimeUnit.SECONDS)
                 readTimeout(10, TimeUnit.SECONDS)
                 writeTimeout(10, TimeUnit.SECONDS)
+            }
+
+            proxy?.let {
+                proxy = this@InnerTube.proxy
+                proxyAuth?.let {
+                    config {
+                        proxyAuthenticator { _, response ->
+                            response.request.newBuilder()
+                                .header("Proxy-Authorization", proxyAuth!!)
+                                .build()
+                        }
+                    }
+                }
             }
         }
 
@@ -337,6 +361,19 @@ class InnerTube {
             FeedbackBody(
                 context = client.toContext(locale, visitorData, dataSyncId),
                 feedbackTokens = tokens
+            )
+        )
+    }
+
+    suspend fun getSearchSuggestions(
+        client: YouTubeClient,
+        input: String,
+    ) = httpClient.post("music/get_search_suggestions") {
+        ytClient(client)
+        setBody(
+            GetSearchSuggestionsBody(
+                context = client.toContext(locale, visitorData, null),
+                input = input
             )
         )
     }

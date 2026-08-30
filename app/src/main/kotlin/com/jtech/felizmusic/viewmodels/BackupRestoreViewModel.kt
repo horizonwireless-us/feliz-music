@@ -1,0 +1,189 @@
+package com.jtech.felizmusic.viewmodels
+
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.jtech.felizmusic.MainActivity
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.db.InternalDatabase
+import com.jtech.felizmusic.db.MusicDatabase
+import com.jtech.felizmusic.db.entities.ArtistEntity
+import com.jtech.felizmusic.db.entities.Song
+import com.jtech.felizmusic.db.entities.SongEntity
+import com.jtech.felizmusic.extensions.div
+import com.jtech.felizmusic.extensions.tryOrNull
+import com.jtech.felizmusic.extensions.zipInputStream
+import com.jtech.felizmusic.extensions.zipOutputStream
+import com.jtech.felizmusic.extensions.toast
+import com.jtech.felizmusic.playback.MusicService
+import com.jtech.felizmusic.playback.MusicService.Companion.PERSISTENT_QUEUE_FILE
+import com.jtech.felizmusic.utils.reportException
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.FileInputStream
+import java.io.FileOutputStream
+import java.util.zip.ZipEntry
+import javax.inject.Inject
+import kotlin.system.exitProcess
+
+@HiltViewModel
+class BackupRestoreViewModel @Inject constructor(
+    val database: MusicDatabase,
+) : ViewModel() {
+    fun backup(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result =
+                runCatching {
+                    context.applicationContext.contentResolver.openOutputStream(uri)?.use {
+                        it.buffered().zipOutputStream().use { outputStream ->
+                            (context.filesDir / "datastore" / SETTINGS_FILENAME).inputStream()
+                                .buffered()
+                                .use { inputStream ->
+                                    outputStream.putNextEntry(ZipEntry(SETTINGS_FILENAME))
+                                    inputStream.copyTo(outputStream)
+                                }
+                            database.checkpoint()
+                            FileInputStream(database.openHelper.writableDatabase.path).use { inputStream ->
+                                outputStream.putNextEntry(ZipEntry(InternalDatabase.DB_NAME))
+                                inputStream.copyTo(outputStream)
+                            }
+                        }
+                    } ?: error("Unable to open output stream for backup")
+                }
+
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    context.toast(R.string.backup_create_success)
+                }.onFailure {
+                    reportException(it)
+                    context.toast(R.string.backup_create_failed)
+                }
+            }
+        }
+    }
+
+    fun restore(context: Context, uri: Uri) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val result =
+                runCatching {
+                    context.applicationContext.contentResolver.openInputStream(uri)?.use {
+                        it.zipInputStream().use { inputStream ->
+                            var entry = tryOrNull { inputStream.nextEntry } // prevent ZipException
+                            while (entry != null) {
+                                when (entry.name) {
+                                    SETTINGS_FILENAME -> {
+                                        (context.filesDir / "datastore" / SETTINGS_FILENAME).outputStream()
+                                            .use { outputStream ->
+                                                inputStream.copyTo(outputStream)
+                                            }
+                                    }
+
+                                    InternalDatabase.DB_NAME -> {
+                                        database.checkpoint()
+                                        database.close()
+                                        FileOutputStream(database.openHelper.writableDatabase.path)
+                                            .use { outputStream ->
+                                                inputStream.copyTo(outputStream)
+                                            }
+                                    }
+                                }
+                                entry = tryOrNull { inputStream.nextEntry } // prevent ZipException
+                            }
+                        }
+                    } ?: error("Unable to open input stream for restore")
+                }
+
+            withContext(Dispatchers.Main) {
+                result.onSuccess {
+                    context.stopService(Intent(context, MusicService::class.java))
+                    context.filesDir.resolve(PERSISTENT_QUEUE_FILE).delete()
+                    context.startActivity(Intent(context, MainActivity::class.java))
+                    exitProcess(0)
+                }.onFailure {
+                    reportException(it)
+                    context.toast(R.string.restore_failed)
+                }
+            }
+        }
+    }
+
+    fun importPlaylistFromCsv(context: Context, uri: Uri): ArrayList<Song> {
+        val songs = arrayListOf<Song>()
+        runCatching {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val lines = stream.bufferedReader().readLines()
+                lines.forEachIndexed { _, line ->
+                    val parts = line.split(",").map { it.trim() }
+                    val title = parts[0]
+                    val artistStr = parts[1]
+
+                    val artists = artistStr.split(";").map { it.trim() }.map {
+                   ArtistEntity(
+                            id = "",
+                            name = it,
+                        )
+                    }
+                    val mockSong = Song(
+                        song = SongEntity(
+                            id = "",
+                            title = title,
+                        ),
+                        artists = artists,
+                    )
+                    songs.add(mockSong)
+                }
+            }
+        }
+
+        if (songs.isEmpty()) {
+            context.toast("No songs found. Invalid file, or perhaps no song matches were found.")
+        }
+        return songs
+    }
+
+    fun loadM3UOnline(
+        context: Context,
+        uri: Uri,
+    ): ArrayList<Song> {
+        val songs = ArrayList<Song>()
+
+        runCatching {
+            context.applicationContext.contentResolver.openInputStream(uri)?.use { stream ->
+                val lines = stream.bufferedReader().readLines()
+                if (lines.first().startsWith("#EXTM3U")) {
+                    lines.forEachIndexed { _, rawLine ->
+                        if (rawLine.startsWith("#EXTINF:")) {
+                            // maybe later write this to be more efficient
+                            val artists =
+                                rawLine.substringAfter("#EXTINF:").substringAfter(',').substringBefore(" - ").split(';')
+                            val title = rawLine.substringAfter("#EXTINF:").substringAfter(',').substringAfter(" - ")
+
+                            val mockSong = Song(
+                                song = SongEntity(
+                                    id = "",
+                                    title = title,
+                                ),
+                                artists = artists.map { ArtistEntity("", it) },
+                            )
+                            songs.add(mockSong)
+
+                        }
+                    }
+                }
+            }
+        }
+
+        if (songs.isEmpty()) {
+            context.toast("No songs found. Invalid file, or perhaps no song matches were found.")
+        }
+        return songs
+    }
+
+    companion object {
+        const val SETTINGS_FILENAME = "settings.preferences_pb"
+    }
+}

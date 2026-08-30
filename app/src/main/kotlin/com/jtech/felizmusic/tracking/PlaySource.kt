@@ -1,0 +1,80 @@
+package com.jtech.felizmusic.tracking
+
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * The `source` taxonomy of the tracking spec — where a play started. Set when a queue is built;
+ * items beyond the originally-chosen context resolve to [RADIO].
+ */
+object PlaySource {
+    const val SEARCH = "search"
+    const val NEW = "new"
+    const val RADIO = "radio"
+    const val OTHER = "other"
+
+    fun artist(id: String) = "artist:$id"
+    /** A Zemer Station broadcast (the whole listen is context under it); `id` is the station slug. */
+    fun station(id: String) = "station:$id"
+    fun album(id: String) = "album:$id"
+    fun playlist(id: String) = "playlist:$id"
+    // A discovery-sourced community playlist (the home "Community playlists" row + the search Community
+    // chip open the same screen). Distinct from [playlist] (artist-owned) so the server can rank the
+    // community home row by real per-playlist engagement. `id` is the bare YouTube playlist id (`PL…`).
+    fun community(id: String) = "community:$id"
+    fun zemer(id: String) = "zemer:$id"
+    /** Genre radio started from a genre page ("Play genre"); `id` is the server genre slug. */
+    fun genre(id: String) = "genre:$id"
+    /**
+     * A play started from a podcast surface; `id` is the podcast (show) id. When the show id is
+     * unknown the bare "podcast" slug is sent — never a videoId, which would splinter server-side
+     * per-show aggregation into phantom one-episode shows.
+     */
+    fun podcast(id: String?) = if (id.isNullOrBlank()) "podcast" else "podcast:$id"
+
+    // Direct plays from the Videos-tab ranked rows (append-only, contract:
+    // handoff zemer-app-video-home-rows-tracking-request.md — the New -> Trending funnel).
+    const val HOME_VIDEO_TRENDING = "home:video-trending"
+    const val HOME_VIDEO_NEW = "home:video-new"
+}
+
+/**
+ * Resolves a played mediaId to its [PlaySource]. The player service registers ids as queues are
+ * built: the user-chosen context items carry the queue's source, radio-continuation items carry
+ * [PlaySource.RADIO], and anything unregistered (manually queued items, a queue restored from disk)
+ * reads as [PlaySource.OTHER]. A new queue replaces the whole registry, so the map stays bounded by
+ * the current queue's size.
+ *
+ * Thread-safe: registrations come from the service's coroutines, lookups from the analytics thread.
+ */
+class PlaySourceResolver {
+    private val sources = ConcurrentHashMap<String, String>()
+    private val previous = ConcurrentHashMap<String, String>()
+
+    /**
+     * A new queue started. The old registry is kept ONE generation (in [previous]) instead of being
+     * wiped: the listen this queue interrupts ends — and resolves its source — only after the new
+     * queue has registered, so a plain clear would misattribute every queue-replacement-terminated
+     * listen to "other". Bounded by two queues' sizes.
+     */
+    fun onQueueStarted(source: String, contextIds: List<String>) {
+        previous.clear()
+        previous.putAll(sources)
+        sources.clear()
+        registerContext(source, contextIds)
+    }
+
+    /** Late-loaded items that still belong to the current queue's chosen context. */
+    fun registerContext(source: String, contextIds: List<String>) {
+        contextIds.forEach { if (it.isNotEmpty()) sources[it] = source }
+    }
+
+    /** Items appended by autoplay/radio continuation beyond the original context. */
+    fun registerRadio(ids: List<String>) {
+        // Never demote a context item: a radio fetch can re-suggest a song already in the context.
+        ids.forEach { if (it.isNotEmpty()) sources.putIfAbsent(it, PlaySource.RADIO) }
+    }
+
+    /** The current queue's registration wins; the previous generation covers the outgoing listen. */
+    fun sourceFor(mediaId: String): String =
+        sources[mediaId] ?: previous[mediaId] ?: PlaySource.OTHER
+}

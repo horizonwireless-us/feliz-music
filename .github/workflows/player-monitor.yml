@@ -30,13 +30,11 @@ jobs:
           private-key: ${{ secrets.ZEMER_APP_PRIVATE_KEY }}
 
       - uses: actions/checkout@v4
-        with:
-          submodules: true
 
       # Fetch the LIVE config file from zemer-cipher master ONCE — that is exactly what
       # deployed apps fetch and self-heal from (PlayerConfigStore), so a verdict against it
-      # never false-alarms when cipher master is ahead of the app's submodule pointer.
-      # The submodule copy is only an explicit, warned-about fallback (it can lag master);
+      # never false-alarms when cipher master is ahead of the bundled checkout.
+      # The sibling checkout is only an explicit, warned-about fallback (it can lag master);
       # if both sources fail the step fails, so a broken monitor is a red run, not silence.
       - name: Fetch known player configs
         run: |
@@ -45,8 +43,8 @@ jobs:
               -o /tmp/player_configs.json; then
             echo "Fetched live player_configs.json from zemer-cipher master"
           else
-            echo "::warning::Could not fetch live player_configs.json from zemer-cipher master — falling back to the submodule copy, which can lag master and false-alarm"
-            cp cipher/library/src/main/assets/player_configs.json /tmp/player_configs.json
+            echo "::warning::Could not fetch live player_configs.json from zemer-cipher master — falling back to the sibling checkout, which can lag master and false-alarm"
+            cp ../zemer-cipher-master/library/src/main/assets/player_configs.json /tmp/player_configs.json
           fi
 
       # Sample the live player surfaces MANY times per run, not once. YouTube A/B-tests new
@@ -149,7 +147,7 @@ jobs:
                 `1. Derive + empirically validate: \`node tests/validate-player-config.mjs ${u.hash}\` (HTTP 206 = ground truth; prints a paste-ready JSON entry)`,
                 '2. Add the entry to `library/src/main/assets/player_configs.json` in `zemer-cipher` (includes the MD5 alias)',
                 '3. Push to `zemer-cipher` `master` — **deployed apps self-heal from that file within minutes; no APK release needed**',
-                '4. Update the submodule pointer in `zemer-app` when convenient (keeps bundled defaults fresh for new installs)',
+                '4. Commit the matching bundled config in `zemer-cipher-master` for new installs.',
               ].join('\n');
 
               await notifyTelegram(title, body);
@@ -190,6 +188,6 @@ jobs:
             2. Add the entry to library/src/main/assets/player_configs.json in zemer-cipher
             3. Push to zemer-cipher master — deployed apps self-heal from that file
                within minutes; no APK release needed
-            4. Update the submodule pointer in zemer-app when convenient
+            4. Commit the matching bundled config in zemer-cipher-master for new installs
 
             GitHub issues: https://github.com/ZemerTeam/zemer-app/issues

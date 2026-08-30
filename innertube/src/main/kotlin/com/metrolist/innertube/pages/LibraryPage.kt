@@ -31,6 +31,9 @@ data class LibraryPage(
                     year = renderer.subtitle?.runs?.lastOrNull()?.text?.toIntOrNull(),
                     thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl()
                         ?: return null,
+                    explicit = renderer.subtitleBadges?.find {
+                        it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                    } != null
                 )
 
                 renderer.isPlaylist -> PlaylistItem(
@@ -67,7 +70,7 @@ data class LibraryPage(
                 )
 
                 // A saved podcast SHOW (MPSP…) tile in the library. Without this branch the tile fell to
-                // `else -> null`, so savedPodcastShows() always came back empty and no
+                // `else -> null`, so savedPodcastShows()/libraryPodcasts() always came back empty and no
                 // saved show ever synced. Mirrors the show parse in ArtistPage.fromMusicTwoRowItemRenderer;
                 // the subtitle's first run is the host channel, so `author.id` carries the UC channelId
                 // that SyncUtils.syncPodcastSubscriptions maps to PodcastEntity.channelId.
@@ -117,6 +120,9 @@ data class LibraryPage(
                     duration = renderer.fixedColumns?.firstOrNull()?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.firstOrNull()?.text?.parseTime(),
                     thumbnail = renderer.thumbnail?.musicThumbnailRenderer?.getThumbnailUrl()
                         ?: return null,
+                    explicit = renderer.badges?.find {
+                        it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                    } != null,
                     endpoint = renderer.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint,
                     libraryAddToken = PageHelper.extractFeedbackToken(renderer.menu?.menuRenderer?.items?.find {
                         it.toggleMenuServiceItemRenderer?.defaultIcon?.iconType?.startsWith("LIBRARY_") == true

@@ -1,0 +1,143 @@
+package com.jtech.felizmusic.models
+
+import androidx.compose.runtime.Immutable
+import com.metrolist.innertube.models.EpisodeItem
+import com.metrolist.innertube.models.SongItem
+import com.jtech.felizmusic.db.entities.Song
+import com.jtech.felizmusic.db.entities.SongEntity
+import com.jtech.felizmusic.playback.VideoSongIds
+import com.jtech.felizmusic.ui.utils.resize
+import java.io.Serializable
+import java.time.LocalDateTime
+
+@Immutable
+data class MediaMetadata(
+    val id: String,
+    val title: String,
+    val artists: List<Artist>,
+    val duration: Int,
+    val thumbnailUrl: String? = null,
+    val album: Album? = null,
+    val setVideoId: String? = null,
+    val explicit: Boolean = false,
+    val liked: Boolean = false,
+    val likedDate: LocalDateTime? = null,
+    val inLibrary: LocalDateTime? = null,
+    val libraryAddToken: String? = null,
+    val libraryRemoveToken: String? = null,
+    val isVideo: Boolean = false,
+    val isEpisode: Boolean = false,
+) : Serializable {
+    data class Artist(
+        val id: String?,
+        val name: String,
+    ) : Serializable
+
+    data class Album(
+        val id: String,
+        val title: String,
+    ) : Serializable
+
+    fun toSongEntity() =
+        SongEntity(
+            id = id,
+            title = title,
+            duration = duration,
+            thumbnailUrl = thumbnailUrl,
+            albumId = album?.id,
+            albumName = album?.title,
+            explicit = explicit,
+            liked = liked,
+            likedDate = likedDate,
+            inLibrary = inLibrary,
+            libraryAddToken = libraryAddToken,
+            libraryRemoveToken = libraryRemoveToken,
+            isVideo = isVideo,
+            isEpisode = isEpisode
+        )
+}
+
+fun Song.toMediaMetadata() =
+    MediaMetadata(
+        id = song.id,
+        title = song.title,
+        artists =
+        artists.map {
+            MediaMetadata.Artist(
+                id = it.id,
+                name = it.name,
+            )
+        },
+        duration = song.duration,
+        thumbnailUrl = song.thumbnailUrl,
+        album =
+        album?.let {
+            MediaMetadata.Album(
+                id = it.id,
+                title = it.title,
+            )
+        } ?: song.albumId?.let { albumId ->
+            MediaMetadata.Album(
+                id = albumId,
+                title = song.albumName.orEmpty(),
+            )
+        },
+        isVideo = song.isVideo,
+        isEpisode = song.isEpisode,
+    )
+
+fun SongItem.toMediaMetadata(): MediaMetadata {
+    // The corpus's video classification deliberately does NOT enter playback metadata (a video-song
+    // plays/downloads/persists as ordinary audio) — but the Song/Video toggle is entitled to it, so
+    // it rides the process-wide registry instead: marked here, at the one SongItem→playback boundary.
+    if (isVideo) VideoSongIds.mark(id)
+    return MediaMetadata(
+        id = id,
+        title = title,
+        artists =
+        artists.map {
+            MediaMetadata.Artist(
+                id = it.id,
+                name = it.name,
+            )
+        },
+        duration = duration ?: -1,
+        thumbnailUrl = thumbnail.resize(544, 544),
+        album =
+        album?.let {
+            MediaMetadata.Album(
+                id = it.id,
+                title = it.name,
+            )
+        },
+        explicit = explicit,
+        setVideoId = setVideoId,
+        libraryAddToken = libraryAddToken,
+        libraryRemoveToken = libraryRemoveToken,
+        isEpisode = isEpisode
+    )
+}
+
+fun EpisodeItem.toMediaMetadata() =
+    MediaMetadata(
+        id = id,
+        title = title,
+        artists = listOfNotNull(author).map {
+            MediaMetadata.Artist(
+                id = it.id,
+                name = it.name,
+            )
+        },
+        duration = duration ?: -1,
+        thumbnailUrl = thumbnail.resize(544, 544),
+        album = podcast?.let {
+            MediaMetadata.Album(
+                id = it.id,
+                title = it.name,
+            )
+        },
+        explicit = explicit,
+        libraryAddToken = libraryAddToken,
+        libraryRemoveToken = libraryRemoveToken,
+        isEpisode = true
+    )

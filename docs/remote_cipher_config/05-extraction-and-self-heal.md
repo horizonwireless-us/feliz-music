@@ -134,8 +134,8 @@ continuation slots).
   (`InnerTube.kt` `playbackContext`).
 - `findUrlOrNull()` → `CipherDeobfuscator.deobfuscateStreamUrl(format.signatureCipher!!, videoId)`
   for ciphered web-client formats.
-- post-selection → `CipherDeobfuscator.transformNParamInUrl(streamUrl)` (the cipher is the
-  sole n-transform source).
+- post-selection → `CipherDeobfuscator.transformNParamInUrl(streamUrl)` (with
+  `EjsNTransformSolver` as an alternate path).
 
 The library is initialized once from the app's `Application` class via
 `ZemerCipher.initialize(context, …)`, which is what calls `PlayerConfigStore.initialize`

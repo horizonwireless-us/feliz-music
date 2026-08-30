@@ -1,0 +1,1107 @@
+@file:Suppress("unused")
+
+package com.jtech.felizmusic.ui.player
+
+import android.annotation.SuppressLint
+import android.content.res.Configuration
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import coil3.compose.AsyncImage
+import com.jtech.felizmusic.LocalDatabase
+import com.jtech.felizmusic.LocalPlayerConnection
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.constants.MiniPlayerHeight
+import com.jtech.felizmusic.constants.PlayerBackgroundStyle
+import com.jtech.felizmusic.constants.PlayerBackgroundStyleKey
+import com.jtech.felizmusic.constants.SwipeSensitivityKey
+import com.jtech.felizmusic.constants.ThumbnailCornerRadius
+import com.jtech.felizmusic.constants.UseNewMiniPlayerDesignKey
+import com.jtech.felizmusic.db.entities.ArtistEntity
+import com.jtech.felizmusic.extensions.togglePlayPause
+import com.jtech.felizmusic.models.MediaMetadata
+import com.jtech.felizmusic.utils.rememberEnumPreference
+import com.jtech.felizmusic.utils.rememberPreference
+import androidx.compose.ui.graphics.toArgb
+import kotlinx.coroutines.launch
+import com.jtech.felizmusic.ui.component.focusBorder
+import kotlin.math.absoluteValue
+import kotlin.math.roundToInt
+import androidx.compose.ui.res.stringResource
+import androidx.compose.runtime.LaunchedEffect
+
+data class MiniPlayerFocusTargets(
+    val play: FocusRequester,
+    val account: FocusRequester,
+    val heart: FocusRequester,
+    val afterHeart: FocusRequester?,
+    val down: FocusRequester?
+)
+
+private fun Modifier.disableTvFocus(): Modifier =
+    this.focusable(false).focusProperties { canFocus = false }
+
+@SuppressLint("ConfigurationScreenWidthHeight")
+@Composable
+fun MiniPlayer(
+    position: () -> Long,
+    duration: () -> Long,
+    modifier: Modifier = Modifier,
+    pureBlack: Boolean,
+    allowFocus: Boolean = true,
+    focusTargets: MiniPlayerFocusTargets? = null,
+) {
+    val useNewMiniPlayerDesign by rememberPreference(UseNewMiniPlayerDesignKey, true)
+
+    if (useNewMiniPlayerDesign) {
+        NewMiniPlayer(
+            position = position,
+            duration = duration,
+            modifier = modifier,
+            pureBlack = pureBlack,
+            allowFocus = allowFocus,
+            focusTargets = focusTargets
+        )
+    } else {
+        // NEW: Wrap LegacyMiniPlayer in a Box to allow alignment on tablet landscape.
+        // The outer Box fills the width, providing a container for the inner player to be aligned within.
+        Box(modifier = modifier.fillMaxWidth()) {
+            LegacyMiniPlayer(
+                position = position,
+                duration = duration,
+                // NEW: Align the player to the end if it's a tablet in landscape.
+                // This modifier is passed to LegacyMiniPlayer and applied to its root Box.
+                modifier = if (
+                    LocalConfiguration.current.screenWidthDp >= 600 &&
+                    LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+                ) {
+                    Modifier.align(Alignment.CenterEnd)
+                } else {
+                    Modifier.align(Alignment.Center)
+                },
+                pureBlack = pureBlack
+            )
+        }
+    }
+}
+
+@SuppressLint("ConfigurationScreenWidthHeight")
+@Composable
+private fun NewMiniPlayer(
+    position: () -> Long,
+    duration: () -> Long,
+    modifier: Modifier = Modifier,
+    pureBlack: Boolean,
+    allowFocus: Boolean,
+    focusTargets: MiniPlayerFocusTargets? = null,
+) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val database = LocalDatabase.current
+    val context = LocalContext.current
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val playbackState by playerConnection.playbackState.collectAsState()
+    val error by playerConnection.error.collectAsState()
+    val isStationBroadcast by playerConnection.isStationBroadcast.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val canSkipNext by playerConnection.canSkipNext.collectAsState()
+    val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
+
+    LocalView.current
+    val layoutDirection = LocalLayoutDirection.current
+    val coroutineScope = rememberCoroutineScope()
+    val swipeSensitivity by rememberPreference(SwipeSensitivityKey, 0.73f)
+    val swipeThumbnail by rememberPreference(com.jtech.felizmusic.constants.SwipeThumbnailKey, true)
+
+    val configuration = LocalConfiguration.current
+    val isTabletLandscape = configuration.screenWidthDp >= 600 &&
+        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    val offsetXAnimatable = remember { Animatable(0f) }
+    var dragStartTime by remember { mutableLongStateOf(0L) }
+    var totalDragDistance by remember { mutableFloatStateOf(0f) }
+
+    val animationSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+
+    val overlayAlpha by animateFloatAsState(
+        targetValue = if (isPlaying) 0.0f else 0.4f,
+        label = "overlay_alpha",
+        animationSpec = animationSpec
+    )
+    val playRequester = focusTargets?.play ?: remember { FocusRequester() }
+    val accountRequester = focusTargets?.account ?: remember { FocusRequester() }
+    val heartRequester = focusTargets?.heart ?: remember { FocusRequester() }
+    val afterHeartRequester = focusTargets?.afterHeart
+    val downRequester = focusTargets?.down
+
+    /**
+     * Calculates the auto-swipe threshold based on swipe sensitivity.
+     * The formula uses a sigmoid function to determine the threshold dynamically.
+     * Constants:
+     * - -11.44748: Controls the steepness of the sigmoid curve.
+     * - 9.04945: Adjusts the midpoint of the curve.
+     * - 600: Base threshold value in pixels.
+     *
+     * @param swipeSensitivity The sensitivity value (typically between 0 and 1).
+     * @return The calculated auto-swipe threshold in pixels.
+     */
+    fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
+        return (600 / (1f + kotlin.math.exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
+    }
+    val autoSwipeThreshold = calculateAutoSwipeThreshold(swipeSensitivity)
+
+    // Mirror the full player's background style so the mini player matches it (no new setting).
+    val playerBackground by rememberEnumPreference(
+        key = PlayerBackgroundStyleKey,
+        defaultValue = PlayerBackgroundStyle.DEFAULT
+    )
+    // Effective style: BLUR downgrades to DEFAULT below Android 12 (the RenderEffect blur is a
+    // no-op there). Single source of truth shared with the full player (see effective()).
+    val effectiveBackground = playerBackground.effective()
+
+    val fallbackColor = MaterialTheme.colorScheme.surface.toArgb()
+    // Shared, bounded, deduped gradient extraction (see rememberPlayerGradient): the mini player
+    // and the full player share one cache so the same artwork is never decoded twice.
+    val gradientColors = rememberPlayerGradient(
+        mediaId = mediaMetadata?.id,
+        thumbnailUrl = mediaMetadata?.thumbnailUrl,
+        enabled = effectiveBackground == PlayerBackgroundStyle.GRADIENT,
+        fallbackColor = fallbackColor,
+    )
+
+    // A dark backdrop is only actually painted once it is ready: a blurred thumbnail needs a
+    // thumbnailUrl, an extracted gradient needs non-empty colors. Until then the box stays on the
+    // solid surface, so keep DARK text — flipping to white before the backdrop exists would put
+    // white text over the (light) Home screen showing through the transparent bar.
+    val blurReady = effectiveBackground == PlayerBackgroundStyle.BLUR &&
+        mediaMetadata?.thumbnailUrl != null
+    val gradientReady = effectiveBackground == PlayerBackgroundStyle.GRADIENT &&
+        gradientColors.isNotEmpty()
+    val lightContent = blurReady || gradientReady
+    val titleColor = if (lightContent) Color.White else MaterialTheme.colorScheme.onSurface
+    val subtitleColor =
+        if (lightContent) Color.White.copy(alpha = 0.7f)
+        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(MiniPlayerHeight)
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
+            .padding(horizontal = 12.dp)
+            // Move the swipe detection to the outer box to affect the entire box
+            .let { baseModifier ->
+                if (swipeThumbnail) {
+                    baseModifier.pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                dragStartTime = System.currentTimeMillis()
+                                totalDragDistance = 0f
+                            },
+                            onDragCancel = {
+                                coroutineScope.launch {
+                                    offsetXAnimatable.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = animationSpec
+                                    )
+                                }
+                            },
+                            onHorizontalDrag = { _, dragAmount ->
+                                val adjustedDragAmount =
+                                    if (layoutDirection == LayoutDirection.Rtl) -dragAmount else dragAmount
+                                // A broadcast has no transport: the swipe gesture acts on the raw
+                                // player and would bypass the session command mask.
+                                val canSkipPrevious = !isStationBroadcast && playerConnection.player.previousMediaItemIndex != -1
+                                val canSkipNext = !isStationBroadcast && playerConnection.player.nextMediaItemIndex != -1
+                                val allowLeft = adjustedDragAmount < 0 && canSkipNext
+                                val allowRight = adjustedDragAmount > 0 && canSkipPrevious
+                                if (allowLeft || allowRight) {
+                                    totalDragDistance += kotlin.math.abs(adjustedDragAmount)
+                                    coroutineScope.launch {
+                                        offsetXAnimatable.snapTo(offsetXAnimatable.value + adjustedDragAmount)
+                                    }
+                                }
+                            },
+                            onDragEnd = {
+                                val dragDuration = System.currentTimeMillis() - dragStartTime
+                                val velocity = if (dragDuration > 0) totalDragDistance / dragDuration else 0f
+                                val currentOffset = offsetXAnimatable.value
+
+                                val minDistanceThreshold = 50f
+                                val velocityThreshold = (swipeSensitivity * -8.25f) + 8.5f
+
+                                val shouldChangeSong = (
+                                    kotlin.math.abs(currentOffset) > minDistanceThreshold &&
+                                    velocity > velocityThreshold
+                                ) || (kotlin.math.abs(currentOffset) > autoSwipeThreshold)
+
+                                if (shouldChangeSong) {
+                                    val isRightSwipe = currentOffset > 0
+
+                                    if (isRightSwipe && canSkipPrevious) {
+                                        playerConnection.player.seekToPreviousMediaItem()
+                                    } else if (!isRightSwipe && canSkipNext) {
+                                        playerConnection.player.seekToNext()
+                                    }
+                                }
+
+                                coroutineScope.launch {
+                                    offsetXAnimatable.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = animationSpec
+                                    )
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    baseModifier
+                }
+            }
+    ) {
+        // Main MiniPlayer box that moves with swipe
+        Box(
+            modifier = Modifier
+                .then(
+                    if (isTabletLandscape) {
+                        Modifier
+                            .width(500.dp)
+                            .align(Alignment.CenterEnd) // Right align
+                    } else {
+                        Modifier.fillMaxWidth()
+                    }
+                )
+                .height(64.dp) // Circular height
+                .offset { IntOffset(offsetXAnimatable.value.roundToInt(), 0) }
+                .clip(RoundedCornerShape(32.dp)) // Clip first for perfect rounded corners
+                .background(
+                    // Transparent only once the blur/gradient backdrop below is actually painted;
+                    // otherwise stay on the solid surface so the (dark) text stays legible.
+                    color = if (lightContent)
+                        Color.Transparent
+                    else
+                        MaterialTheme.colorScheme.surfaceContainer // Same as navigation bar color
+                )
+                .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(32.dp)
+                )
+        ) {
+            // Background layer (behind the Row): blurred artwork or extracted gradient.
+            when (effectiveBackground) {
+                PlayerBackgroundStyle.BLUR -> {
+                    mediaMetadata?.thumbnailUrl?.let { thumbnailUrl ->
+                        AsyncImage(
+                            model = thumbnailUrl,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .blur(60.dp)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.4f))
+                        )
+                    }
+                }
+                PlayerBackgroundStyle.GRADIENT -> {
+                    if (gradientColors.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Brush.horizontalGradient(colorStops = playerGradientStops(gradientColors)))
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.2f))
+                        )
+                    }
+                }
+                else -> {
+                    // DEFAULT: solid surface background applied above, nothing extra.
+                }
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 8.dp, vertical = 8.dp),
+            ) {
+                // Play/Pause button with circular progress indicator (left side)
+                val progressColor = MaterialTheme.colorScheme.primary
+                val progressTrackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                // Hoisted out of the draw lambda: the stroke is density-constant, so it is the only
+                // heap allocation the per-frame arc would otherwise repeat (Size/Offset are value
+                // classes). Remembered keyed on density so it survives a config change correctly.
+                val density = LocalDensity.current
+                val progressStroke = remember(density) {
+                    Stroke(width = with(density) { 3.dp.toPx() }, cap = StrokeCap.Round)
+                }
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .focusRequester(playRequester)
+                        .then(
+                            if (focusTargets != null) {
+                                Modifier.focusProperties {
+                                    next = accountRequester
+                                    down = downRequester ?: FocusRequester.Default
+                                }
+                            } else Modifier
+                        )
+                        .focusable()
+                        // Draw-phase progress arc: reads position()/duration() at draw time,
+                        // so a per-second position change no longer recomposes this composable.
+                        .drawWithContent {
+                            drawContent()
+                            val d = duration()
+                            if (d > 0) {
+                                val fraction = (position().toFloat() / d).coerceIn(0f, 1f)
+                                // Inset by half the stroke so the ring sits inside the 48dp box.
+                                val inset = progressStroke.width / 2f
+                                val arcSize = androidx.compose.ui.geometry.Size(
+                                    size.width - progressStroke.width,
+                                    size.height - progressStroke.width
+                                )
+                                val topLeft = androidx.compose.ui.geometry.Offset(inset, inset)
+                                drawArc(
+                                    color = progressTrackColor,
+                                    startAngle = 0f,
+                                    sweepAngle = 360f,
+                                    useCenter = false,
+                                    topLeft = topLeft,
+                                    size = arcSize,
+                                    style = progressStroke
+                                )
+                                drawArc(
+                                    color = progressColor,
+                                    startAngle = -90f,
+                                    sweepAngle = 360f * fraction,
+                                    useCenter = false,
+                                    topLeft = topLeft,
+                                    size = arcSize,
+                                    style = progressStroke
+                                )
+                            }
+                        }
+                ) {
+                    // Play/Pause button with thumbnail background
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .border(
+                                width = 1.dp,
+                                color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                            .clickable {
+                                playerConnection.playPauseOrReplay(playbackState == Player.STATE_ENDED)
+                            }
+                    ) {
+                        // Thumbnail background
+                        mediaMetadata?.let { metadata ->
+                            AsyncImage(
+                                model = metadata.thumbnailUrl,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                            )
+                        }
+
+                        // Semi-transparent overlay for better icon visibility
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    color = Color.Black.copy(alpha = overlayAlpha),
+                                    shape = CircleShape
+                                )
+                        )
+
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = playbackState == Player.STATE_ENDED || !isPlaying,
+                            enter = fadeIn(),
+                            exit = fadeOut()
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (playbackState == Player.STATE_ENDED) {
+                                        R.drawable.replay
+                                    } else {
+                                        R.drawable.play
+                                    }
+                                ),
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                // Song info - takes most space in the middle
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    mediaMetadata?.let { metadata ->
+                        AnimatedContent(
+                            targetState = metadata.title,
+                            transitionSpec = { fadeIn() togetherWith fadeOut() },
+                            label = "",
+                        ) { title ->
+                            Text(
+                                text = title,
+                                color = titleColor,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
+                            )
+                        }
+
+                        if (metadata.artists.any { it.name.isNotBlank() }) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // A broadcast identifies itself on the mini bar too (handoff par. 5).
+                                if (isStationBroadcast) {
+                                    StationLiveBadge(
+                                        accentColor = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(end = 6.dp),
+                                    )
+                                }
+                                AnimatedContent(
+                                    targetState = metadata.artists.joinToString { it.name },
+                                    transitionSpec = { fadeIn() togetherWith fadeOut() },
+                                    label = "",
+                                ) { artists ->
+                                    Text(
+                                        text = artists,
+                                        color = subtitleColor,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.basicMarquee(iterations = 1, initialDelayMillis = 3000, velocity = 30.dp),
+                                    )
+                                }
+                            }
+                        }
+
+                        // Error indicator
+                        androidx.compose.animation.AnimatedVisibility(
+                            visible = error != null,
+                            enter = fadeIn(),
+                            exit = fadeOut(),
+                        ) {
+                            Text(
+                                text = stringResource(R.string.error_playing),
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+
+                rememberCastButtonState()?.let { castState ->
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .border(
+                                width = 1.dp,
+                                color = if (castState.connected)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                else
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                            .background(
+                                color = if (castState.connected)
+                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                else
+                                    Color.Transparent,
+                                shape = CircleShape
+                            )
+                            .focusBorder(CircleShape)
+                            .clickable(onClick = castState.onClick)
+                    ) {
+                        CastIcon(
+                            connected = castState.connected,
+                            idleTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                            size = 20.dp,
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Subscribe/Subscribed button
+                mediaMetadata?.let { metadata ->
+                    metadata.artists.firstOrNull()?.id?.let { artistId ->
+                        // Bare artist row (no whitelist JOIN) so this reflects for a podcast HOST
+                        // channel too - the whitelist-scoped artist(id) is always null for them.
+                        val libraryArtist by database.artistEntity(artistId).collectAsState(initial = null)
+                        val isSubscribed = libraryArtist?.bookmarkedAt != null
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isSubscribed)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                                    else
+                                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    shape = CircleShape
+                                )
+                                .background(
+                                    color = if (isSubscribed)
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                    else
+                                        Color.Transparent,
+                                    shape = CircleShape
+                                )
+                                .focusRequester(accountRequester)
+                                .then(
+                                    if (focusTargets != null) {
+                                        Modifier.focusProperties {
+                                            previous = playRequester
+                                            next = heartRequester
+                                            down = downRequester ?: FocusRequester.Default
+                                        }
+                                    } else Modifier
+                                )
+                                .focusable()
+                                .clickable {
+                                    database.transaction {
+                                        val artist = libraryArtist
+                                        if (artist != null) {
+                                            update(artist.toggleLike())
+                                        } else {
+                                            metadata.artists.firstOrNull()?.let { artistInfo ->
+                                                insert(
+                                                    ArtistEntity(
+                                                        id = artistInfo.id ?: "",
+                                                        name = artistInfo.name,
+                                                        // For a podcast episode the "artist" is the host
+                                                        // channel: mark it so it lands in the Channels tab
+                                                        // and the server subscribe hits the right id.
+                                                        channelId = if (metadata.isEpisode) artistInfo.id else null,
+                                                        thumbnailUrl = null,
+                                                        isPodcastChannel = metadata.isEpisode,
+                                                    ).toggleLike()
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                        ) {
+                            Icon(
+                                painter = painterResource(
+                                    if (isSubscribed) R.drawable.subscribed else R.drawable.subscribe
+                                ),
+                                contentDescription = null,
+                                tint = if (isSubscribed)
+                                    MaterialTheme.colorScheme.primary
+                                else
+                                    subtitleColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Favorite button (right side)
+                mediaMetadata?.let { metadata ->
+                    val librarySong by database.song(metadata.id).collectAsState(initial = null)
+                    val isLiked = librarySong?.song?.isSavedForPlayer == true
+
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .border(
+                                width = 1.dp,
+                                color = if (isLiked)
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.5f)
+                                else
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                shape = CircleShape
+                            )
+                            .background(
+                                color = if (isLiked)
+                                    MaterialTheme.colorScheme.error.copy(alpha = 0.1f)
+                                else 
+                                    Color.Transparent,
+                                shape = CircleShape
+                            )
+                            .focusRequester(heartRequester)
+                            .then(
+                                if (focusTargets != null) {
+                                    Modifier.focusProperties {
+                                        previous = accountRequester
+                                        afterHeartRequester?.let { next = it }
+                                        down = downRequester ?: FocusRequester.Default
+                                    }
+                                } else Modifier
+                            )
+                            .focusable()
+                            .clickable {
+                                playerConnection.service.toggleLike()
+                            }
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (isLiked) R.drawable.favorite else R.drawable.favorite_border
+                            ),
+                            contentDescription = null,
+                            tint = if (isLiked)
+                                MaterialTheme.colorScheme.error
+                            else
+                                subtitleColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@SuppressLint("ConfigurationScreenWidthHeight")
+@Composable
+private fun LegacyMiniPlayer(
+    position: () -> Long,
+    duration: () -> Long,
+    modifier: Modifier = Modifier,
+    pureBlack: Boolean,
+) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val playbackState by playerConnection.playbackState.collectAsState()
+    val error by playerConnection.error.collectAsState()
+    val isStationBroadcast by playerConnection.isStationBroadcast.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+    val canSkipNext by playerConnection.canSkipNext.collectAsState()
+    val canSkipPrevious by playerConnection.canSkipPrevious.collectAsState()
+
+    LocalView.current
+    val layoutDirection = LocalLayoutDirection.current
+    val coroutineScope = rememberCoroutineScope()
+    val swipeSensitivity by rememberPreference(SwipeSensitivityKey, 0.73f)
+    val swipeThumbnail by rememberPreference(com.jtech.felizmusic.constants.SwipeThumbnailKey, true)
+
+    // NEW: Get screen configuration to determine if it's a tablet in landscape mode.
+    val configuration = LocalConfiguration.current
+    val isTabletLandscape = configuration.screenWidthDp >= 600 &&
+        configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    val offsetXAnimatable = remember { Animatable(0f) }
+    var dragStartTime by remember { mutableLongStateOf(0L) }
+    var totalDragDistance by remember { mutableFloatStateOf(0f) }
+
+    val animationSpec = spring<Float>(
+        dampingRatio = Spring.DampingRatioNoBouncy,
+        stiffness = Spring.StiffnessLow
+    )
+
+    fun calculateAutoSwipeThreshold(swipeSensitivity: Float): Int {
+        return (600 / (1f + kotlin.math.exp(-(-11.44748 * swipeSensitivity + 9.04945)))).roundToInt()
+    }
+    val autoSwipeThreshold = calculateAutoSwipeThreshold(swipeSensitivity)
+
+    Box(
+        modifier = modifier
+            .then(
+                // NEW: Conditionally set the width based on the device configuration.
+                if (isTabletLandscape) {
+                    Modifier.width(500.dp)
+                } else {
+                    Modifier.fillMaxWidth()
+                }
+            )
+            .height(MiniPlayerHeight)
+            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Horizontal))
+            // NEW: Clip the shape BEFORE applying the background.
+            // This ensures that the background is applied to the clipped, rounded shape,
+            // preventing sharp edges when the width is reduced.
+            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .background(
+                if (pureBlack)
+                    Color.Black
+                else
+                    MaterialTheme.colorScheme.surfaceContainer // Fixed background independent of player background
+            )
+            .let { baseModifier ->
+                if (swipeThumbnail) {
+                    baseModifier.pointerInput(Unit) {
+                        detectHorizontalDragGestures(
+                            onDragStart = {
+                                dragStartTime = System.currentTimeMillis()
+                                totalDragDistance = 0f
+                            },
+                            onDragCancel = {
+                                coroutineScope.launch {
+                                    offsetXAnimatable.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = animationSpec
+                                    )
+                                }
+                            },
+                            onHorizontalDrag = { _, dragAmount ->
+                                val adjustedDragAmount =
+                                    if (layoutDirection == LayoutDirection.Rtl) -dragAmount else dragAmount
+                                // A broadcast has no transport: the swipe gesture acts on the raw
+                                // player and would bypass the session command mask.
+                                val canSkipPrevious = !isStationBroadcast && playerConnection.player.previousMediaItemIndex != -1
+                                val canSkipNext = !isStationBroadcast && playerConnection.player.nextMediaItemIndex != -1
+                                val allowLeft = adjustedDragAmount < 0 && canSkipNext
+                                val allowRight = adjustedDragAmount > 0 && canSkipPrevious
+                                if (allowLeft || allowRight) {
+                                    totalDragDistance += kotlin.math.abs(adjustedDragAmount)
+                                    coroutineScope.launch {
+                                        offsetXAnimatable.snapTo(offsetXAnimatable.value + adjustedDragAmount)
+                                    }
+                                }
+                            },
+                            onDragEnd = {
+                                val dragDuration = System.currentTimeMillis() - dragStartTime
+                                val velocity = if (dragDuration > 0) totalDragDistance / dragDuration else 0f
+                                val currentOffset = offsetXAnimatable.value
+
+                                val minDistanceThreshold = 50f
+                                val velocityThreshold = (swipeSensitivity * -8.25f) + 8.5f
+
+                                val shouldChangeSong = (
+                                    kotlin.math.abs(currentOffset) > minDistanceThreshold &&
+                                    velocity > velocityThreshold
+                                ) || (kotlin.math.abs(currentOffset) > autoSwipeThreshold)
+
+                                if (shouldChangeSong) {
+                                    val isRightSwipe = currentOffset > 0
+
+                                    if (isRightSwipe && canSkipPrevious) {
+                                        playerConnection.player.seekToPreviousMediaItem()
+                                    } else if (!isRightSwipe && canSkipNext) {
+                                        playerConnection.player.seekToNext()
+                                    }
+                                }
+
+                                coroutineScope.launch {
+                                    offsetXAnimatable.animateTo(
+                                        targetValue = 0f,
+                                        animationSpec = animationSpec
+                                    )
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    baseModifier
+                }
+            }
+    ) {
+        // Draw-phase progress bar: reads position()/duration() at draw time so a
+        // per-second position change no longer recomposes this composable.
+        val legacyProgressColor = MaterialTheme.colorScheme.primary
+        val legacyTrackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.24f)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .align(Alignment.BottomCenter)
+                .drawWithContent {
+                    drawContent()
+                    drawRect(color = legacyTrackColor)
+                    val d = duration()
+                    if (d > 0) {
+                        val fraction = (position().toFloat() / d).coerceIn(0f, 1f)
+                        drawRect(
+                            color = legacyProgressColor,
+                            size = androidx.compose.ui.geometry.Size(size.width * fraction, size.height)
+                        )
+                    }
+                },
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxSize()
+                .offset { IntOffset(offsetXAnimatable.value.roundToInt(), 0) }
+                .padding(end = 12.dp),
+        ) {
+            Box(Modifier.weight(1f)) {
+                mediaMetadata?.let {
+                    LegacyMiniMediaInfo(
+                        mediaMetadata = it,
+                        error = error,
+                        pureBlack = pureBlack,
+                        isStationBroadcast = isStationBroadcast,
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                    )
+                }
+            }
+
+            rememberCastButtonState()?.let { castState ->
+                IconButton(onClick = castState.onClick) {
+                    CastIcon(
+                        connected = castState.connected,
+                        idleTint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        size = 24.dp,
+                    )
+                }
+            }
+
+            IconButton(
+                onClick = {
+                    playerConnection.playPauseOrReplay(playbackState == Player.STATE_ENDED)
+                },
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (playbackState == Player.STATE_ENDED) {
+                            R.drawable.replay
+                        } else if (isPlaying) {
+                            R.drawable.pause
+                        } else {
+                            R.drawable.play
+                        },
+                    ),
+                    contentDescription = null,
+                )
+            }
+
+            IconButton(
+                enabled = canSkipNext,
+                onClick = playerConnection::seekToNext,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.skip_next),
+                    contentDescription = null,
+                )
+            }
+        }
+
+        // Visual indicator
+        if (offsetXAnimatable.value.absoluteValue > 50f) {
+            Box(
+                modifier = Modifier
+                    .align(if (offsetXAnimatable.value > 0) Alignment.CenterStart else Alignment.CenterEnd)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Icon(
+                    painter = painterResource(
+                        if (offsetXAnimatable.value > 0) R.drawable.skip_previous else R.drawable.skip_next
+                    ),
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary.copy(
+                        alpha = (offsetXAnimatable.value.absoluteValue / autoSwipeThreshold).coerceIn(0f, 1f)
+                    ),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegacyMiniMediaInfo(
+    mediaMetadata: MediaMetadata,
+    error: PlaybackException?,
+    pureBlack: Boolean,
+    isStationBroadcast: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+    ) {
+        Box(
+            modifier = Modifier
+                .padding(6.dp)
+                .size(48.dp)
+                .clip(RoundedCornerShape(ThumbnailCornerRadius))
+        ) {
+            // Simple background instead of expensive blur
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            )
+
+            // Main thumbnail
+            AsyncImage(
+                model = mediaMetadata.thumbnailUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(ThumbnailCornerRadius)),
+            )
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = error != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            color = if (pureBlack) Color.Black else Color.Black.copy(alpha = 0.6f),
+                            shape = RoundedCornerShape(ThumbnailCornerRadius),
+                        ),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.info),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 6.dp),
+        ) {
+            AnimatedContent(
+                targetState = mediaMetadata.title,
+                transitionSpec = { fadeIn() togetherWith fadeOut() },
+                label = "",
+            ) { title ->
+                Text(
+                    text = title,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.basicMarquee(),
+                )
+            }
+
+            if (mediaMetadata.artists.any { it.name.isNotBlank() }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // A broadcast identifies itself on the mini bar too (handoff par. 5).
+                    if (isStationBroadcast) {
+                        StationLiveBadge(
+                            accentColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 6.dp),
+                        )
+                    }
+                    AnimatedContent(
+                        targetState = mediaMetadata.artists.joinToString { it.name },
+                        transitionSpec = { fadeIn() togetherWith fadeOut() },
+                        label = "",
+                    ) { artists ->
+                        Text(
+                            text = artists,
+                            color = MaterialTheme.colorScheme.secondary,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}

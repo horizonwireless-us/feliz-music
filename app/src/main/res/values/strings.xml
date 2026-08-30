@@ -23,6 +23,8 @@
 
     <!-- Home -->
     <string name="history">History</string>
+    <string name="stats">Stats</string>
+    <string name="mood_and_genres">Mood and Genres</string>
     <string name="account">Account</string>
     <string name="quick_picks">Quick picks</string>
     <string name="forgotten_favorites">Forgotten favorites</string>
@@ -35,6 +37,7 @@
     <string name="last_week">Last week</string>
 
     <!-- Stats -->
+    <string name="most_played_songs">Most played songs</string>
 
     <!-- Search -->
     <string name="search">Search</string>
@@ -258,6 +261,8 @@
     <string name="report_failure">Failed to send report.</string>
     <string name="report_choose_reason">Please select a reason.</string>
 
+    <string name="content_language">Default content language</string>
+    <string name="content_country">Default content country</string>
     <string name="system_default">System default</string>
 
     <string name="player_and_audio">Player and audio</string>
@@ -302,6 +307,8 @@
     <string name="pause_search_history">Pause search history</string>
     <string name="clear_search_history">Clear search history</string>
     <string name="clear_search_history_confirm">Are you sure you want to clear all search history?</string>
+    <string name="disable_screenshot">Disable screenshot</string>
+    <string name="disable_screenshot_desc">When this option is on, screenshots and the app\'s view in Recents are disabled.</string>
     <string name="enable_lrclib">Enable LrcLib lyrics provider</string>
 
     <string name="backup_restore">Backup and restore</string>
@@ -320,6 +327,7 @@
     <string name="allow_female_singers">Allow female singers</string>
     <string name="block_videos">Block videos</string>
     <string name="enable_personal_filters">Enable personal feed filters</string>
+    <string name="i_am_chasidish">Promote chassidish content</string>
     <string name="radio_mode">Radio mode</string>
 
     <!-- D-pad Button Mapper -->
@@ -387,12 +395,24 @@
     <string name="custom_density_title">Custom Density</string>
     <string name="custom_density_hint">Enter a value between 50 and 120</string>
     <string name="ok">OK</string>
+    <string name="refresh_artists">Refresh artists</string>
     <string name="version_short">v%1$s</string>
     <string name="splash_syncing_progress">Syncing %1$d/%2$d artists</string>
     <string name="splash_preparing_app">Warming up your experience…</string>
     <string name="splash_continue">Let\'s go</string>
     <string name="splash_syncing_background_action">Continue while we sync</string>
     <string name="splash_syncing_background_waiting">Syncing in background…</string>
+    <string name="new_release_error_title">New releases unavailable</string>
+    <string name="new_release_empty_title">No new releases</string>
+    <string name="new_release_empty_subtitle">We could not find new releases right now. Try again in a bit.</string>
+    <string name="new_release_retry">Try again</string>
+    <string name="new_release_title">Recent releases</string>
+    <string name="new_release_songs_title">Latest singles</string>
+    <string name="new_release_albums_title">Latest albums</string>
+    <string name="mood_and_genres_error_title">Could not load moods &amp; genres</string>
+    <string name="mood_and_genres_empty_title">No moods &amp; genres found</string>
+    <string name="mood_and_genres_empty_subtitle">Try refreshing to pull fresh categories.</string>
+    <string name="mood_and_genres_retry">Retry</string>
     <string name="search_error_title">Search is having trouble</string>
     <string name="search_empty_title">No results</string>
     <string name="search_retry">Search again</string>

@@ -1,0 +1,14 @@
+@file:Suppress("MISSING_DEPENDENCY_SUPERCLASS_IN_TYPE_ARGUMENT")
+
+package com.jtech.felizmusic.constants
+
+@Suppress("unused")
+enum class LibraryFilter {
+    SONGS,
+    VIDEOS,
+    ARTISTS,
+    ALBUMS,
+    PLAYLISTS,
+    PODCASTS,
+    LIBRARY
+}

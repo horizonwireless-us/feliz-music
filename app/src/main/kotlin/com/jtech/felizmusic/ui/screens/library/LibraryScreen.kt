@@ -1,0 +1,103 @@
+package com.jtech.felizmusic.ui.screens.library
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.navigation.NavController
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.constants.BlockVideosKey
+import com.jtech.felizmusic.constants.BlockPodcastsKey
+import com.jtech.felizmusic.constants.ChipSortTypeKey
+import com.jtech.felizmusic.constants.LibraryFilter
+import com.jtech.felizmusic.ui.component.ChipsRow
+import com.jtech.felizmusic.utils.rememberEnumPreference
+import com.jtech.felizmusic.utils.rememberPreference
+
+@Composable
+fun LibraryScreen(navController: NavController) {
+    var filterType by rememberEnumPreference(ChipSortTypeKey, LibraryFilter.LIBRARY)
+    val (blockVideos, _) = rememberPreference(BlockVideosKey, false)
+    val (blockPodcasts, _) = rememberPreference(BlockPodcastsKey, false)
+
+    val availableFilters = buildList {
+        add(LibraryFilter.SONGS)
+        if (!blockVideos) add(LibraryFilter.VIDEOS)
+        add(LibraryFilter.ARTISTS)
+        add(LibraryFilter.ALBUMS)
+        add(LibraryFilter.PLAYLISTS)
+        if (!blockPodcasts) add(LibraryFilter.PODCASTS)
+        add(LibraryFilter.LIBRARY)
+    }
+
+    val filterContent = @Composable {
+        Row {
+            ChipsRow(
+                chips =
+                availableFilters.associateWith { filter ->
+                    when (filter) {
+                        LibraryFilter.PLAYLISTS -> stringResource(R.string.filter_playlists)
+                        LibraryFilter.SONGS -> stringResource(R.string.filter_songs)
+                        LibraryFilter.VIDEOS -> stringResource(R.string.videos)
+                        LibraryFilter.ALBUMS -> stringResource(R.string.filter_albums)
+                        LibraryFilter.ARTISTS -> stringResource(R.string.filter_artists)
+                        LibraryFilter.PODCASTS -> stringResource(R.string.filter_podcasts)
+                        LibraryFilter.LIBRARY -> ""
+                    }
+                }.filterKeys { it != LibraryFilter.LIBRARY }.toList(),
+                currentValue = filterType,
+                onValueUpdate = {
+                    filterType =
+                        if (filterType == it) {
+                            LibraryFilter.LIBRARY
+                        } else {
+                            it
+                        }
+                },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        when (filterType) {
+            LibraryFilter.LIBRARY -> LibraryMixScreen(navController, filterContent)
+            LibraryFilter.PLAYLISTS -> LibraryPlaylistsScreen(navController, filterContent)
+            LibraryFilter.SONGS -> LibrarySongsScreen(
+                navController,
+                { filterType = LibraryFilter.LIBRARY })
+
+            LibraryFilter.ALBUMS -> LibraryAlbumsScreen(
+                navController,
+                { filterType = LibraryFilter.LIBRARY })
+
+            LibraryFilter.ARTISTS -> LibraryArtistsScreen(
+                navController,
+                { filterType = LibraryFilter.LIBRARY })
+
+            LibraryFilter.VIDEOS -> if (!blockVideos) {
+                LibraryVideosScreen(
+                    navController,
+                    { filterType = LibraryFilter.LIBRARY })
+            } else {
+                // Fallback to LIBRARY if videos are blocked
+                LibraryMixScreen(navController, filterContent)
+            }
+
+            LibraryFilter.PODCASTS -> if (!blockPodcasts) {
+                LibraryPodcastsScreen(
+                    navController,
+                    { filterType = LibraryFilter.LIBRARY })
+            } else {
+                // Fallback to LIBRARY if podcasts are blocked
+                LibraryMixScreen(navController, filterContent)
+            }
+        }
+    }
+}

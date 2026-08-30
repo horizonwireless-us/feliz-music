@@ -1,0 +1,65 @@
+package com.jtech.felizmusic.viewmodels
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.jtech.felizmusic.constants.ArtistSortType
+import com.jtech.felizmusic.db.MusicDatabase
+import com.jtech.felizmusic.utils.ArtistThumbResolver
+import com.jtech.felizmusic.utils.SyncUtils
+import com.jtech.felizmusic.utils.ContentFilterState
+import com.jtech.felizmusic.utils.WhitelistCache
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import timber.log.Timber
+import javax.inject.Inject
+
+@HiltViewModel
+class WhitelistedArtistsViewModel
+@Inject
+constructor(
+    private val database: MusicDatabase,
+    private val syncUtils: SyncUtils,
+    private val thumbResolver: ArtistThumbResolver,
+) : ViewModel() {
+    val searchQuery = MutableStateFlow("")
+
+    // Expose sync progress from SyncUtils
+    val syncProgress = syncUtils.whitelistSyncProgress
+    val isSyncing = syncUtils.isWhitelistSyncing
+
+    val allArtists =
+        combine(
+            database.allWhitelistedArtistsByName(),
+            ContentFilterState.state,
+            searchQuery
+        ) { artists: List<com.jtech.felizmusic.db.entities.Artist>, filters, query ->
+            Timber.d("WhitelistedArtistsVM: Total whitelisted artists from DB: ${artists.size}, Search query: '$query'")
+            val filteredByToggle = artists.filter { artist ->
+                val entry = WhitelistCache.get(artist.id)
+                entry == null || WhitelistCache.isAllowed(entry, filters)
+            }
+            val filteredByQuery =
+                if (query.isBlank()) filteredByToggle
+                else filteredByToggle.filter { artist -> artist.artist.name.contains(query, ignoreCase = true) }
+
+            Timber.d("WhitelistedArtistsVM: Filtered result: ${filteredByQuery.size} artists")
+            filteredByQuery
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    fun sync() {
+        viewModelScope.launch(Dispatchers.IO) {
+            // Force a full refresh when the user taps the refresh icon so it behaves
+            // like a manual “pull new whitelist” action even if the version hasn't changed.
+            syncUtils.syncArtistWhitelist(forceSync = true)
+        }
+    }
+
+    // Fallback for a missing/rotted synced thumbnail — the shared app-wide resolver (bounded,
+    // cooldown-retried, column-targeted write). See ArtistThumbResolver.
+    fun requestThumb(artistId: String) = thumbResolver.requestThumb(artistId)
+}

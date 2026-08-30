@@ -1,0 +1,56 @@
+package com.jtech.felizmusic.viewmodels
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.jtech.felizmusic.db.MusicDatabase
+import com.jtech.felizmusic.db.entities.Artist
+import com.jtech.felizmusic.utils.ArtistThumbResolver
+import com.jtech.felizmusic.utils.SyncUtils
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import timber.log.Timber
+import javax.inject.Inject
+
+@HiltViewModel
+class KidZoneViewModel
+@Inject
+constructor(
+    private val database: MusicDatabase,
+    private val syncUtils: SyncUtils,
+    private val thumbResolver: ArtistThumbResolver,
+) : ViewModel() {
+    val searchQuery = MutableStateFlow("")
+
+    // Expose sync progress from SyncUtils
+    val syncProgress = syncUtils.whitelistSyncProgress
+    val isSyncing = syncUtils.isWhitelistSyncing
+
+    fun sync() {
+        viewModelScope.launch(Dispatchers.IO) {
+            syncUtils.syncArtistWhitelist(forceSync = true)
+        }
+    }
+
+    val allArtists =
+        combine(
+            database.allKidsArtistsByName(),
+            searchQuery
+        ) { artists: List<Artist>, query ->
+            Timber.d("KidZoneVM: Total kids artists from DB: ${artists.size}, Search query: '$query'")
+            val filteredByQuery =
+                if (query.isBlank()) artists
+                else artists.filter { artist -> artist.artist.name.contains(query, ignoreCase = true) }
+
+            Timber.d("KidZoneVM: Filtered result: ${filteredByQuery.size} artists")
+            filteredByQuery
+        }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+    // Fallback for a missing/rotted synced thumbnail — the shared app-wide resolver (bounded,
+    // cooldown-retried, column-targeted write). See ArtistThumbResolver.
+    fun requestThumb(artistId: String) = thumbResolver.requestThumb(artistId)
+}

@@ -41,17 +41,6 @@ abstract class ActivityLifecycleManager : BaseLifecycleContentProvider() {
     protected open val activityTimerDelayMillis: Int
         get() = 3000
 
-    /** Runs [action] on every currently-resumed activity, isolating per-activity failures. */
-    protected fun forEachActiveActivity(action: (Activity) -> Unit) {
-        activeActivities.forEach { activity ->
-            try {
-                action(activity)
-            } catch (e: Exception) {
-                Timber.tag(TAG).w(e, "Error applying action to active activity")
-            }
-        }
-    }
-
     protected open fun onActivityTimer(activity: Activity) {}
 
     override fun onCreate(): Boolean {

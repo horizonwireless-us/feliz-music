@@ -1,0 +1,468 @@
+package com.jtech.felizmusic.ui.screens.settings
+
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import coil3.annotation.ExperimentalCoilApi
+import coil3.imageLoader
+import com.jtech.felizmusic.ui.component.RequestInitialDpadFocus
+import com.jtech.felizmusic.LocalPlayerAwareWindowInsets
+import com.jtech.felizmusic.LocalPlayerConnection
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.constants.CustomDownloadPathKey
+import com.jtech.felizmusic.constants.MaxImageCacheSizeKey
+import com.jtech.felizmusic.constants.MaxSongCacheSizeKey
+import com.jtech.felizmusic.extensions.tryOrNull
+import com.jtech.felizmusic.ui.component.ActionPromptDialog
+import com.jtech.felizmusic.ui.component.AppBarTitle
+import com.jtech.felizmusic.ui.component.BackNavigationIcon
+import com.jtech.felizmusic.ui.component.ListPreference
+import com.jtech.felizmusic.ui.component.PreferenceEntry
+import com.jtech.felizmusic.ui.component.SettingsCardGroup
+import com.jtech.felizmusic.ui.component.SettingsScreenTopSpacing
+import com.jtech.felizmusic.ui.component.zemerTopAppBarColors
+import com.jtech.felizmusic.ui.utils.backToMain
+import com.jtech.felizmusic.ui.utils.formatFileSize
+import com.jtech.felizmusic.db.entities.Song
+import com.jtech.felizmusic.utils.EnvironmentPaths.DEFAULT_RELATIVE_DOWNLOAD_PATH
+import com.jtech.felizmusic.utils.EnvironmentPaths.toUserFacingPath
+import com.jtech.felizmusic.utils.rememberPreference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+@SuppressLint("AutoboxingStateCreation")
+@OptIn(ExperimentalCoilApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun StorageSettings(
+    navController: NavController,
+    scrollBehavior: TopAppBarScrollBehavior,
+) {
+    val context = LocalContext.current
+    val imageDiskCache = context.imageLoader.diskCache ?: return
+    val playerService = LocalPlayerConnection.current?.service ?: return
+    val playerCache = playerService.playerCache
+    val downloadCache = playerService.downloadCache
+    val database = playerService.database
+
+    val coroutineScope = rememberCoroutineScope()
+    val (maxImageCacheSize, onMaxImageCacheSizeChange) = rememberPreference(
+        key = MaxImageCacheSizeKey,
+        defaultValue = 512
+    )
+    val (maxSongCacheSize, onMaxSongCacheSizeChange) = rememberPreference(
+        key = MaxSongCacheSizeKey,
+        defaultValue = 1024
+    )
+    val (customDownloadPath, onCustomDownloadPathChange) = rememberPreference(
+        key = CustomDownloadPathKey,
+        defaultValue = ""
+    )
+    val resolvedDownloadPath = remember(customDownloadPath) {
+        customDownloadPath.toUserFacingPath().ifBlank { DEFAULT_RELATIVE_DOWNLOAD_PATH }
+    }
+    val downloadPickerLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            uri?.let {
+                val flags =
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(it, flags)
+                onCustomDownloadPathChange(it.toString())
+            }
+        }
+    val onResetDownloadPath = {
+        customDownloadPath.takeIf { it.isNotBlank() }?.let { stored ->
+            runCatching {
+                context.contentResolver.releasePersistableUriPermission(
+                    Uri.parse(stored),
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                )
+            }
+        }
+        onCustomDownloadPathChange("")
+    }
+    var clearCacheDialog by remember { mutableStateOf(false) }
+    var clearDownloads by remember { mutableStateOf(false) }
+    var clearImageCacheDialog by remember { mutableStateOf(false) }
+
+    var imageCacheSize by remember {
+        mutableLongStateOf(imageDiskCache.size)
+    }
+    var playerCacheSize by remember {
+        mutableLongStateOf(tryOrNull { playerCache.cacheSpace } ?: 0)
+    }
+    var downloadCacheSize by remember { mutableStateOf(0L) }
+    val imageCacheProgress by animateFloatAsState(
+        targetValue = (imageCacheSize.toFloat() / imageDiskCache.maxSize).coerceIn(0f, 1f),
+        label = "imageCacheProgress",
+    )
+    val playerCacheProgress by animateFloatAsState(
+        targetValue = (playerCacheSize.toFloat() / (maxSongCacheSize * 1024 * 1024L)).coerceIn(
+            0f,
+            1f
+        ),
+        label = "playerCacheProgress",
+    )
+
+    LaunchedEffect(maxImageCacheSize) {
+        if (maxImageCacheSize == 0) {
+            coroutineScope.launch(Dispatchers.IO) {
+                imageDiskCache.clear()
+            }
+        }
+    }
+    LaunchedEffect(maxSongCacheSize) {
+        if (maxSongCacheSize == 0) {
+            coroutineScope.launch(Dispatchers.IO) {
+                playerCache.keys.forEach { key ->
+                    playerCache.removeResource(key)
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(imageDiskCache) {
+        while (isActive) {
+            delay(500)
+            imageCacheSize = imageDiskCache.size
+        }
+    }
+    LaunchedEffect(playerCache) {
+        while (isActive) {
+            delay(500)
+            playerCacheSize = tryOrNull { playerCache.cacheSpace } ?: 0
+        }
+    }
+    LaunchedEffect(database) {
+        database.downloadedSongsByCreateDateAsc(includeVideos = true).collect { songs ->
+            downloadCacheSize = calculateDownloadedSongsSize(context, songs)
+        }
+    }
+
+    val backFocus = remember { FocusRequester() }
+    val firstFocus = remember { FocusRequester() }
+
+    RequestInitialDpadFocus(firstFocus)
+
+    Column(
+        Modifier
+            .windowInsetsPadding(LocalPlayerAwareWindowInsets.current)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        Spacer(Modifier.height(SettingsScreenTopSpacing))
+        SettingsCardGroup(
+            title = stringResource(R.string.downloaded_songs),
+            // Section-scoped size caption between the title and the rows (main's hierarchy).
+            headerContent = {
+                Text(
+                    text = stringResource(R.string.size_used, formatFileSize(downloadCacheSize)),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 6.dp),
+                )
+            },
+            rows = buildList {
+                add {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.custom_download_path)) },
+                        description = stringResource(
+                            R.string.custom_download_path_summary,
+                            resolvedDownloadPath
+                        ),
+                        onClick = { downloadPickerLauncher.launch(null) }
+                    )
+                }
+                add {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.video_download_path)) },
+                        description = stringResource(R.string.video_download_path_summary),
+                        onClick = { /* Video path is fixed to Movies/Zemer */ }
+                    )
+                }
+                if (customDownloadPath.isNotBlank()) {
+                    add {
+                        PreferenceEntry(
+                            title = { Text(stringResource(R.string.reset_download_path)) },
+                            description = stringResource(R.string.reset_download_path_summary),
+                            onClick = onResetDownloadPath
+                        )
+                    }
+                }
+                add {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.clear_all_downloads)) },
+                        onClick = {clearDownloads = true
+                        },
+                        modifier = Modifier.focusRequester(firstFocus),
+                    )
+                }
+            },
+        )
+
+        if (clearDownloads) {
+            ActionPromptDialog(
+                title = stringResource(R.string.clear_all_downloads),
+                onDismiss = { clearDownloads = false },
+                onConfirm = {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        // Downloads live in MediaStore (SongEntity.isDownloaded + mediaStoreUri), NOT the
+                        // legacy ExoPlayer downloadCache (which is empty) — clearing that cache deleted
+                        // nothing. Remove each download (audio AND video) through the unified path so the
+                        // actual file is deleted and the flag cleared, then sweep any legacy cache remnants.
+                        val allDownloaded =
+                            playerService.database.downloadedSongsByCreateDateAsc(includeVideos = false).first() +
+                                playerService.database.downloadedVideos().first()
+                        allDownloaded.forEach { song ->
+                            playerService.downloadUtil.removeDownload(song.id)
+                        }
+                        downloadCache.keys.forEach { key ->
+                            downloadCache.removeResource(key)
+                        }
+                    }
+                    clearDownloads = false
+                },
+                onCancel = { clearDownloads = false },
+                content = {
+                    Text(text = stringResource(R.string.clear_downloads_dialog))
+                }
+            )
+        }
+
+        SettingsCardGroup(
+            title = stringResource(R.string.song_cache),
+            headerContent = {
+                if (maxSongCacheSize != 0) {
+                    if (maxSongCacheSize == -1) {
+                        Text(
+                            text = stringResource(R.string.size_used, formatFileSize(playerCacheSize)),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 6.dp),
+                        )
+                    } else {
+                        // Use M3 LinearProgressIndicator with theme colors
+                        LinearProgressIndicator(
+                            progress = { playerCacheProgress },
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(start = 4.dp, top = 2.dp, bottom = 6.dp),
+                            color = MaterialTheme.colorScheme.primary, // Explicitly use theme color
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant, // Use appropriate track color
+                            strokeCap = StrokeCap.Round // M3 default style
+                        )
+
+                        Text(
+                            text =
+                            stringResource(
+                                R.string.size_used,
+                                "${formatFileSize(playerCacheSize)} / ${
+                                    formatFileSize(
+                                        maxSongCacheSize * 1024 * 1024L,
+                                    )
+                                }",
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 6.dp),
+                        )
+                    }
+                }
+            },
+            rows = listOf(
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.max_cache_size)) },
+                        selectedValue = maxSongCacheSize,
+                        values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192, -1),
+                        valueText = {
+                            when (it) {
+                                0 -> stringResource(R.string.disable)
+                                -1 -> stringResource(R.string.unlimited)
+                                else -> formatFileSize(it * 1024 * 1024L)
+                            }
+                        },
+                        onValueSelected = onMaxSongCacheSizeChange,
+                    )
+                },
+                {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.clear_song_cache)) },
+                        onClick = { clearCacheDialog = true
+                        },
+                    )
+                },
+            ),
+        )
+
+        if (clearCacheDialog) {
+            ActionPromptDialog(
+                title = stringResource(R.string.clear_song_cache),
+                onDismiss = { clearCacheDialog = false },
+                onConfirm = {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        playerCache.keys.forEach { key ->
+                            playerCache.removeResource(key)
+                        }
+                    }
+                    clearCacheDialog = false
+                },
+                onCancel = { clearCacheDialog = false },
+                content = {
+                    Text(text = stringResource(R.string.clear_song_cache_dialog))
+                }
+            )
+        }
+
+        SettingsCardGroup(
+            title = stringResource(R.string.image_cache),
+            headerContent = {
+                if (maxImageCacheSize > 0) {
+                    // Use M3 LinearProgressIndicator with theme colors
+                    LinearProgressIndicator(
+                        progress = { imageCacheProgress },
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(start = 4.dp, top = 2.dp, bottom = 6.dp),
+                        color = MaterialTheme.colorScheme.primary, // Explicitly use theme color
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant, // Use appropriate track color
+                        strokeCap = StrokeCap.Round // M3 default style
+                    )
+
+                    Text(
+                        text = stringResource(
+                            R.string.size_used,
+                            "${formatFileSize(imageCacheSize)} / ${formatFileSize(imageDiskCache.maxSize)}"
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 6.dp),
+                    )
+                }
+            },
+            rows = listOf(
+                {
+                    ListPreference(
+                        title = { Text(stringResource(R.string.max_cache_size)) },
+                        selectedValue = maxImageCacheSize,
+                        values = listOf(0, 128, 256, 512, 1024, 2048, 4096, 8192),
+                        valueText = {
+                            when (it) {
+                                0 -> stringResource(R.string.disable)
+                                else -> formatFileSize(it * 1024 * 1024L)
+                            }
+                        },
+                        onValueSelected = onMaxImageCacheSizeChange,
+                    )
+                },
+                {
+                    PreferenceEntry(
+                        title = { Text(stringResource(R.string.clear_image_cache)) },
+                        onClick = { clearImageCacheDialog = true
+                        },
+                    )
+                },
+            ),
+        )
+
+
+        if (clearImageCacheDialog) {
+            ActionPromptDialog(
+                title = stringResource(R.string.clear_image_cache),
+                onDismiss = { clearImageCacheDialog = false },
+                onConfirm = {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        imageDiskCache.clear()
+                    }
+                    clearImageCacheDialog = false
+                },
+                onCancel = { clearImageCacheDialog = false },
+                content = {
+                    Text(text = stringResource(R.string.clear_image_cache_dialog))
+                }
+            )
+        }
+    }
+
+    TopAppBar(
+        title = { AppBarTitle(stringResource(R.string.storage)) },
+        navigationIcon = {
+            BackNavigationIcon(
+                navController,
+                modifier = Modifier
+                    .focusRequester(backFocus)
+                    .focusProperties { down = firstFocus }
+            )
+        },
+        colors = zemerTopAppBarColors(),
+    )
+}
+
+private suspend fun calculateDownloadedSongsSize(
+    context: Context,
+    songs: List<Song>,
+): Long = withContext(Dispatchers.IO) {
+    songs.sumOf { song ->
+        val uriString = song.song.mediaStoreUri
+        val fallbackSize = song.format?.contentLength ?: 0L
+
+        if (uriString.isNullOrBlank()) return@sumOf fallbackSize
+
+        val resolvedSize: Long = try {
+            val uri = Uri.parse(uriString)
+            val resolver = context.contentResolver
+
+            resolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
+                ?.use { cursor ->
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (sizeIndex != -1 && cursor.moveToFirst()) {
+                        cursor.getLong(sizeIndex)
+                    } else {
+                        fallbackSize
+                    }
+                } ?: fallbackSize
+        } catch (e: Exception) {
+            fallbackSize
+        }
+
+        resolvedSize
+    }
+}

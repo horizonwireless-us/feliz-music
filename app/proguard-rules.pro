@@ -6,21 +6,21 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # WebView JavaScript interfaces - MUST keep @JavascriptInterface methods
--keepclassmembers class com.jtech.zemer.utils.sabr.EjsNTransformSolver$SolverWebView {
+-keepclassmembers class com.jtech.felizmusic.utils.sabr.EjsNTransformSolver$SolverWebView {
     @android.webkit.JavascriptInterface public *;
 }
--keepclassmembers class com.jtech.zemer.utils.cipher.CipherWebView {
+-keepclassmembers class com.jtech.felizmusic.utils.cipher.CipherWebView {
     @android.webkit.JavascriptInterface public *;
 }
--keep class com.jtech.zemer.utils.sabr.EjsNTransformSolver { *; }
--keep class com.jtech.zemer.utils.sabr.EjsNTransformSolver$SolverWebView { *; }
--keep class com.jtech.zemer.utils.cipher.CipherDeobfuscator { *; }
--keep class com.jtech.zemer.utils.cipher.CipherWebView { *; }
--keep class com.jtech.zemer.utils.cipher.PlayerJsFetcher { *; }
+-keep class com.jtech.felizmusic.utils.sabr.EjsNTransformSolver { *; }
+-keep class com.jtech.felizmusic.utils.sabr.EjsNTransformSolver$SolverWebView { *; }
+-keep class com.jtech.felizmusic.utils.cipher.CipherDeobfuscator { *; }
+-keep class com.jtech.felizmusic.utils.cipher.CipherWebView { *; }
+-keep class com.jtech.felizmusic.utils.cipher.PlayerJsFetcher { *; }
 
 # Keep entire cipher and sabr packages (critical for stream playback)
--keep class com.jtech.zemer.utils.cipher.** { *; }
--keep class com.jtech.zemer.utils.sabr.** { *; }
+-keep class com.jtech.felizmusic.utils.cipher.** { *; }
+-keep class com.jtech.felizmusic.utils.sabr.** { *; }
 
 # Keep coroutine continuation for WebView callbacks
 -keepclassmembers class * {
@@ -64,6 +64,20 @@
 # @Serializable and @Polymorphic are used at runtime for polymorphic serialization.
 -keepattributes RuntimeVisibleAnnotations,AnnotationDefault
 
+## Rules for NewPipeExtractor
+-keep class org.schabi.newpipe.extractor.services.youtube.protos.** { *; }
+-keep class org.schabi.newpipe.extractor.timeago.patterns.** { *; }
+-keep class org.mozilla.javascript.** { *; }
+-keep class org.mozilla.javascript.engine.** { *; }
+-dontwarn org.mozilla.javascript.JavaToJSONConverters
+-dontwarn org.mozilla.javascript.tools.**
+-keep class javax.script.** { *; }
+-dontwarn javax.script.**
+-keep class jdk.dynalink.** { *; }
+-dontwarn jdk.dynalink.**
+-dontwarn com.google.re2j.**
+-dontwarn org.jsoup.helper.Re2jRegex**
+
 ## Logging (does not affect Timber)
 -assumenosideeffects class android.util.Log {
     public static boolean isLoggable(java.lang.String, int);
@@ -98,11 +112,11 @@
 
 ## Queue Persistence Rules
 # Keep queue-related classes to prevent serialization issues in release builds
--keep class com.jtech.zemer.models.PersistQueue { *; }
--keep class com.jtech.zemer.models.PersistPlayerState { *; }
--keep class com.jtech.zemer.models.QueueData { *; }
--keep class com.jtech.zemer.models.QueueType { *; }
--keep class com.jtech.zemer.playback.queues.** { *; }
+-keep class com.jtech.felizmusic.models.PersistQueue { *; }
+-keep class com.jtech.felizmusic.models.PersistPlayerState { *; }
+-keep class com.jtech.felizmusic.models.QueueData { *; }
+-keep class com.jtech.felizmusic.models.QueueType { *; }
+-keep class com.jtech.felizmusic.playback.queues.** { *; }
 
 ## UCrop Rules
 -dontwarn com.yalantis.ucrop**
@@ -110,7 +124,7 @@
 -keep interface com.yalantis.ucrop** { *; }
 
 ## Native Cover Art Library (Bento4 JNI)
--keep class com.jtech.zemer.utils.CoverArtNative { *; }
+-keep class com.jtech.felizmusic.utils.CoverArtNative { *; }
 
 ## Firebase and Auth Rules (for release build sync)
 -keep class com.google.firebase.** { *; }
@@ -138,12 +152,12 @@
 -keep class com.google.firebase.firestore.QuerySnapshot { *; }
 
 ## App Sync Classes (prevent obfuscation)
--keep class com.jtech.zemer.sync.** { *; }
--keep class com.jtech.zemer.auth.** { *; }
--keep class com.jtech.zemer.utils.DeviceIdGenerator { *; }
--keep class com.jtech.zemer.utils.ContentFilterConfig { *; }
--keep class com.jtech.zemer.utils.ContentFilterState { *; }
--keep class com.jtech.zemer.sync.models.** { *; }
+-keep class com.jtech.felizmusic.sync.** { *; }
+-keep class com.jtech.felizmusic.auth.** { *; }
+-keep class com.jtech.felizmusic.utils.DeviceIdGenerator { *; }
+-keep class com.jtech.felizmusic.utils.ContentFilterConfig { *; }
+-keep class com.jtech.felizmusic.utils.ContentFilterState { *; }
+-keep class com.jtech.felizmusic.sync.models.** { *; }
 
 ## Keep DataStore and Preferences classes
 -keep class androidx.datastore.** { *; }
@@ -175,8 +189,8 @@
 }
 
 ## Keep custom annotations used in sync module
--keep @interface com.jtech.zemer.di.SyncDataStore
--keep @interface com.jtech.zemer.di.MainDataStore
+-keep @interface com.jtech.felizmusic.di.SyncDataStore
+-keep @interface com.jtech.felizmusic.di.MainDataStore
 -keep @interface dagger.BindsInstance
 -keep @interface dagger.Provides
 -keep @interface javax.inject.Singleton
@@ -192,15 +206,15 @@
 -keep class * implements com.google.gson.JsonDeserializer
 
 ## Keep R8/ProGuard from optimizing critical sync methods
--keepclassmembers class com.jtech.zemer.sync.UserPreferencesRepository {
+-keepclassmembers class com.jtech.felizmusic.sync.UserPreferencesRepository {
     public *;
 }
 
--keepclassmembers class com.jtech.zemer.auth.UserAuthManager {
+-keepclassmembers class com.jtech.felizmusic.auth.UserAuthManager {
     public *;
 }
 
--keepclassmembers class com.jtech.zemer.utils.DeviceIdGenerator {
+-keepclassmembers class com.jtech.felizmusic.utils.DeviceIdGenerator {
     public *;
 }
 
@@ -212,11 +226,11 @@
 ## Reflection and serialization for Firestore
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
--keep,includedescriptorclasses class com.jtech.zemer.sync.models.**$$serializer { *; }
--keepclassmembers class com.jtech.zemer.sync.models.** {
+-keep,includedescriptorclasses class com.jtech.felizmusic.sync.models.**$$serializer { *; }
+-keepclassmembers class com.jtech.felizmusic.sync.models.** {
     *** Companion;
 }
--keepclasseswithmembers class com.jtech.zemer.sync.models.** {
+-keepclasseswithmembers class com.jtech.felizmusic.sync.models.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 

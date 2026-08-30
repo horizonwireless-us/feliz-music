@@ -1,0 +1,542 @@
+package com.jtech.felizmusic.ui.screens
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.jtech.felizmusic.ui.component.RequestInitialDpadFocus
+import com.jtech.felizmusic.ui.component.focusVisualsEnabled
+import com.jtech.felizmusic.ui.component.AppBarTitle
+import com.jtech.felizmusic.ui.component.EmptyPlaceholder
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastForEachIndexed
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.media3.exoplayer.offline.Download
+import androidx.navigation.NavController
+import coil3.compose.AsyncImage
+import com.jtech.felizmusic.LocalDatabase
+import com.jtech.felizmusic.LocalDownloadUtil
+import com.jtech.felizmusic.LocalPlayerAwareWindowInsets
+import com.jtech.felizmusic.LocalPlayerConnection
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.constants.AlbumThumbnailSize
+import com.jtech.felizmusic.constants.HideExplicitKey
+import com.jtech.felizmusic.constants.ThumbnailCornerRadius
+import com.jtech.felizmusic.db.entities.Album
+import com.jtech.felizmusic.extensions.togglePlayPause
+import com.jtech.felizmusic.playback.queues.LocalAlbumRadio
+import com.jtech.felizmusic.ui.component.AggregateDownloadButton
+import com.jtech.felizmusic.ui.component.AutoResizeText
+import com.jtech.felizmusic.ui.component.FontSizeRange
+import com.jtech.felizmusic.ui.component.IconButton
+import com.jtech.felizmusic.ui.component.LocalMenuState
+import com.jtech.felizmusic.ui.component.MoreVertMenuButton
+import com.jtech.felizmusic.ui.component.SongListItem
+import com.jtech.felizmusic.ui.component.zemerTopAppBarColors
+import com.jtech.felizmusic.ui.menu.AlbumMenu
+import com.jtech.felizmusic.ui.menu.SelectionSongMenu
+import com.jtech.felizmusic.ui.menu.SongMenu
+import com.jtech.felizmusic.ui.screens.playlist.PlaylistHeaderShimmer
+import com.jtech.felizmusic.ui.screens.playlist.PlaylistPlayShuffleButtons
+import com.jtech.felizmusic.ui.utils.activeRowTapTogglesPlayPause
+import com.jtech.felizmusic.ui.utils.ItemWrapper
+import com.jtech.felizmusic.ui.utils.backToMain
+import com.jtech.felizmusic.ui.utils.navigateToArtist
+import com.jtech.felizmusic.utils.rememberPreference
+import com.jtech.felizmusic.viewmodels.AlbumViewModel
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun AlbumScreen(
+    navController: NavController,
+    scrollBehavior: TopAppBarScrollBehavior,
+    viewModel: AlbumViewModel = hiltViewModel(),
+) {
+    val context = LocalContext.current
+    val menuState = LocalMenuState.current
+    val database = LocalDatabase.current
+    val haptic = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
+    val playerConnection = LocalPlayerConnection.current ?: return
+
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    val playlistId by viewModel.playlistId.collectAsState()
+    val albumWithSongs by viewModel.albumWithSongs.collectAsState()
+    val albumNotFound by viewModel.notFound.collectAsState()
+    val hideExplicit by rememberPreference(key = HideExplicitKey, defaultValue = false)
+
+    val wrappedSongs = remember(albumWithSongs, hideExplicit) {
+        val filteredSongs = if (hideExplicit) {
+            albumWithSongs?.songs?.filter { !it.song.explicit } ?: emptyList()
+        } else {
+            albumWithSongs?.songs ?: emptyList()
+        }
+        filteredSongs.map { item -> ItemWrapper(item) }.toMutableStateList()
+    }
+    var selection by remember {
+        mutableStateOf(false)
+    }
+
+    if (selection) {
+        BackHandler {
+            selection = false
+        }
+    }
+
+    val downloadUtil = LocalDownloadUtil.current
+
+    // Focus state for TopAppBar buttons
+    val isBackButtonFocused = remember { mutableStateOf(false) }
+    val isSelectAllButtonFocused = remember { mutableStateOf(false) }
+    val isMoreButtonFocused = remember { mutableStateOf(false) }
+
+    // Focus state for track items
+    val trackFocusStates = remember { mutableMapOf<String, Boolean>() }
+
+    // Focus requesters to skip player
+    val backButtonFocusRequester = remember { FocusRequester() }
+    val firstHeaderItemFocusRequester = remember { FocusRequester() }
+
+    val backButtonBorderColor = animateColorAsState(
+        targetValue = if (isBackButtonFocused.value && focusVisualsEnabled()) MaterialTheme.colorScheme.primary else Color.Transparent,
+        label = "back_button_focus_border"
+    )
+    val selectAllButtonBorderColor = animateColorAsState(
+        targetValue = if (isSelectAllButtonFocused.value && focusVisualsEnabled()) MaterialTheme.colorScheme.primary else Color.Transparent,
+        label = "select_all_button_focus_border"
+    )
+    val moreButtonBorderColor = animateColorAsState(
+        targetValue = if (isMoreButtonFocused.value && focusVisualsEnabled()) MaterialTheme.colorScheme.primary else Color.Transparent,
+        label = "more_button_focus_border"
+    )
+
+    RequestInitialDpadFocus(firstHeaderItemFocusRequester)
+
+    LazyColumn(
+        contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
+    ) {
+        val albumWithSongs = albumWithSongs
+        if (albumWithSongs != null && albumWithSongs.songs.isNotEmpty()) {
+            item(key = "album_header") {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AsyncImage(
+                            model = albumWithSongs.album.thumbnailUrl,
+                            contentDescription = null,
+                            modifier =
+                            Modifier
+                                .size(AlbumThumbnailSize)
+                                .clip(RoundedCornerShape(ThumbnailCornerRadius)),
+                        )
+
+                        Spacer(Modifier.width(16.dp))
+
+                        Column(
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            AutoResizeText(
+                                text = albumWithSongs.album.title,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                                fontSizeRange = FontSizeRange(16.sp, 22.sp),
+                            )
+
+                            val artistLinkFocused = remember { mutableStateOf(false) }
+                            val artistLinkBorderColor = animateColorAsState(
+                                targetValue = if (artistLinkFocused.value && focusVisualsEnabled()) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                label = "artist_link_focus_border"
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .focusRequester(firstHeaderItemFocusRequester)
+                                    .border(3.dp, artistLinkBorderColor.value, RoundedCornerShape(8.dp))
+                                    .focusable()
+                                    .onFocusChanged { artistLinkFocused.value = it.isFocused }
+                                    .padding(4.dp)
+                            ) {
+                                Text(buildAnnotatedString {
+                                    withStyle(
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Normal,
+                                            color = MaterialTheme.colorScheme.onBackground
+                                        ).toSpanStyle()
+                                    ) {
+                                        albumWithSongs.artists.fastForEachIndexed { index, artist ->
+                                            val link = LinkAnnotation.Clickable(artist.id) {
+                                                navController.navigateToArtist(artist.id)
+                                            }
+                                            withLink(link) {
+                                                append(artist.name)
+                                            }
+                                            if (index != albumWithSongs.artists.lastIndex) {
+                                                append(", ")
+                                            }
+                                        }
+                                    }
+                                })
+                            }
+
+                            if (albumWithSongs.album.year != null) {
+                                Text(
+                                    text = albumWithSongs.album.year.toString(),
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Normal,
+                                )
+                            }
+
+                            Row {
+                                val heartButtonFocused = remember { mutableStateOf(false) }
+                                val heartButtonBorderColor = animateColorAsState(
+                                    targetValue = if (heartButtonFocused.value && focusVisualsEnabled()) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    label = "heart_button_focus_border"
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .border(3.dp, heartButtonBorderColor.value, RoundedCornerShape(8.dp))
+                                        .focusable()
+                                        .onFocusChanged { heartButtonFocused.value = it.isFocused }
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            database.query {
+                                                update(albumWithSongs.album.toggleLike())
+                                            }
+                                        },
+                                    ) {
+                                        Icon(
+                                            painter =
+                                            painterResource(
+                                                if (albumWithSongs.album.bookmarkedAt !=
+                                                    null
+                                                ) {
+                                                    R.drawable.favorite
+                                                } else {
+                                                    R.drawable.favorite_border
+                                                },
+                                            ),
+                                            contentDescription = null,
+                                            tint =
+                                            if (albumWithSongs.album.bookmarkedAt !=
+                                                null
+                                            ) {
+                                                MaterialTheme.colorScheme.error
+                                            } else {
+                                                LocalContentColor.current
+                                            },
+                                        )
+                                    }
+                                }
+
+                                AggregateDownloadButton(
+                                    songs = albumWithSongs.songs,
+                                    onDownloadAll = {
+                                        albumWithSongs.songs.forEach { downloadUtil.downloadToMediaStore(it) }
+                                    },
+                                    onRemoveAll = {
+                                        albumWithSongs.songs.forEach { song ->
+                                            coroutineScope.launch { downloadUtil.removeDownload(song.id) }
+                                        }
+                                    },
+                                )
+
+                                val headerMenuButtonFocused = remember { mutableStateOf(false) }
+                                val headerMenuButtonBorderColor = animateColorAsState(
+                                    targetValue = if (headerMenuButtonFocused.value && focusVisualsEnabled()) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                    label = "header_menu_button_focus_border"
+                                )
+                                Box(
+                                    modifier = Modifier
+                                        .border(3.dp, headerMenuButtonBorderColor.value, RoundedCornerShape(8.dp))
+                                        .focusable()
+                                        .onFocusChanged { headerMenuButtonFocused.value = it.isFocused }
+                                ) {
+                                    MoreVertMenuButton(
+                                        onClick = {
+                                            menuState.show {
+                                                AlbumMenu(
+                                                    originalAlbum = Album(
+                                                        albumWithSongs.album,
+                                                        albumWithSongs.artists
+                                                    ),
+                                                    navController = navController,
+                                                    onDismiss = menuState::dismiss,
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+
+                    PlaylistPlayShuffleButtons(
+                        onPlay = {
+                            playerConnection.service.getAutomix(playlistId)
+                            playerConnection.playQueue(
+                                LocalAlbumRadio(albumWithSongs, context = context),
+                            )
+                        },
+                        onShuffle = {
+                            playerConnection.service.getAutomix(playlistId)
+                            playerConnection.playQueue(
+                                LocalAlbumRadio(albumWithSongs.copy(songs = albumWithSongs.songs.shuffled()), context = context),
+                            )
+                        },
+                    )
+                }
+            }
+
+            if (!wrappedSongs.isEmpty()) {
+                itemsIndexed(
+                    items = wrappedSongs,
+                    key = { _, song -> song.item.id },
+                ) { index, songWrapper ->
+                    val trackId = songWrapper.item.id
+                    val isTrackFocused = trackFocusStates[trackId] ?: false
+                    val trackBorderColor = animateColorAsState(
+                        targetValue = if (isTrackFocused && focusVisualsEnabled()) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        label = "track_${trackId}_focus_border"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .animateItem()
+                            .border(3.dp, trackBorderColor.value, RoundedCornerShape(8.dp))
+                            .focusable()
+                            .onFocusChanged { trackFocusStates[trackId] = it.isFocused }
+                    ) {
+                        SongListItem(
+                            song = songWrapper.item,
+                            albumIndex = index + 1,
+                            isActive = songWrapper.item.id == mediaMetadata?.id,
+                            isPlaying = isPlaying,
+                            showInLibraryIcon = true,
+
+                            trailingContent = {
+                                MoreVertMenuButton(
+                                    onClick = {
+                                        menuState.show {
+                                            SongMenu(
+                                                originalSong = songWrapper.item,
+                                                navController = navController,
+                                                onDismiss = menuState::dismiss,
+                                            )
+                                        }
+                                    },
+                                )
+                            },
+                            isSelected = songWrapper.isSelected && selection,
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = {
+                                        if (!selection) {
+                                            if (activeRowTapTogglesPlayPause(songWrapper.item.id == mediaMetadata?.id, playerConnection.isStationBroadcast.value)) {
+                                                playerConnection.playPause()
+                                            } else {
+                                                playerConnection.service.getAutomix(playlistId)
+                                                playerConnection.playQueue(
+                                                    LocalAlbumRadio(albumWithSongs, startIndex = index, context = context),
+                                                )
+                                            }
+                                        } else {
+                                            songWrapper.isSelected = !songWrapper.isSelected
+                                        }
+                                    },
+                                    onLongClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        if (!selection) {
+                                            selection = true
+                                        }
+                                        wrappedSongs.forEach {
+                                            it.isSelected = false
+                                        } // Clear previous selections
+                                        songWrapper.isSelected = true // Select the current item
+                                    },
+                                ),
+                        )
+                    }
+                }
+            }
+        } else if (albumNotFound) {
+            // The album isn't in the corpus (404 / no tracks) and nothing is stored locally — a neutral
+            // state rather than an endless loading shimmer.
+            item(key = "album_unavailable") {
+                EmptyPlaceholder(
+                    icon = R.drawable.album,
+                    text = stringResource(R.string.album_not_available),
+                    modifier = Modifier.fillParentMaxSize(),
+                )
+            }
+        } else {
+            item(key = "loading_shimmer") {
+                PlaylistHeaderShimmer(modifier = Modifier.animateItem())
+            }
+        }
+    }
+
+    TopAppBar(
+        title = {
+            if (selection) {
+                val count = wrappedSongs.count { it.isSelected }
+                AppBarTitle(
+                    text = pluralStringResource(R.plurals.n_song, count, count)
+                )
+            } else {
+                AppBarTitle(
+                    text = albumWithSongs?.album?.title.orEmpty()
+                )
+            }
+        },
+        navigationIcon = {
+            Box(
+                modifier = Modifier
+                    .focusRequester(backButtonFocusRequester)
+                    .border(3.dp, backButtonBorderColor.value, RoundedCornerShape(8.dp))
+                    .focusable()
+                    .onFocusChanged { isBackButtonFocused.value = it.isFocused }
+                    .focusProperties { down = firstHeaderItemFocusRequester }
+            ) {
+                IconButton(
+                    onClick = {
+                        if (selection) {
+                            selection = false
+                        } else {
+                            navController.navigateUp()
+                        }
+                    },
+                    onLongClick = {
+                        if (!selection) {
+                            navController.backToMain()
+                        }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (selection) R.drawable.close else R.drawable.arrow_back
+                        ),
+                        contentDescription = null
+                    )
+                }
+            }
+        },
+        actions = {
+            if (selection) {
+                val count = wrappedSongs.count { it.isSelected }
+                Box(
+                    modifier = Modifier
+                        .border(3.dp, selectAllButtonBorderColor.value, RoundedCornerShape(8.dp))
+                        .focusable()
+                        .onFocusChanged { isSelectAllButtonFocused.value = it.isFocused }
+                ) {
+                    IconButton(
+                        onClick = {
+                            if (count == wrappedSongs.size) {
+                                wrappedSongs.forEach { it.isSelected = false }
+                            } else {
+                                wrappedSongs.forEach { it.isSelected = true }
+                            }
+                        },
+                    ) {
+                        Icon(
+                            painter = painterResource(
+                                if (count == wrappedSongs.size) R.drawable.deselect else R.drawable.select_all
+                            ),
+                            contentDescription = null
+                        )
+                    }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .border(3.dp, moreButtonBorderColor.value, RoundedCornerShape(8.dp))
+                        .focusable()
+                        .onFocusChanged { isMoreButtonFocused.value = it.isFocused }
+                ) {
+                    MoreVertMenuButton(
+                        onClick = {
+                            menuState.show {
+                                SelectionSongMenu(
+                                    songSelection = wrappedSongs.filter { it.isSelected }
+                                        .map { it.item },
+                                    onDismiss = menuState::dismiss,
+                                    clearAction = { selection = false }
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+        },
+        colors = zemerTopAppBarColors(),
+    )
+}

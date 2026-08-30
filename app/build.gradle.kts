@@ -15,11 +15,11 @@ plugins {
 }
 
 android {
-    namespace = "com.jtech.zemer"
+    namespace = "com.jtech.felizmusic"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.jtech.zemer"
+        applicationId = "com.jtech.felizmusic"
         minSdk = 26
         targetSdk = 36
         versionCode = 38
@@ -35,10 +35,12 @@ android {
         buildConfigField("String", "COMMIT_HASH", "\"$commitHash\"")
         val googleTokenExchangeUrl = (project.findProperty("googleTokenExchangeUrl") as String?) ?: ""
         buildConfigField("String", "GOOGLE_TOKEN_EXCHANGE_URL", "\"$googleTokenExchangeUrl\"")
-        // Read-only content mirror (content.zemer.io) used mirror-first with the Firebase SDK as
+        val firebaseProjectId = (project.findProperty("firebaseProjectId") as String?) ?: ""
+        buildConfigField("String", "FELIZ_FIREBASE_PROJECT_ID", "\"$firebaseProjectId\"")
+        // Read-only Feliz content mirror used mirror-first with the Firebase SDK as
         // fallback (see ZemerContentClient). Override with -PcontentMirrorUrl=; empty disables the
         // mirror so every content read goes straight to Firebase (debug force-Firebase / A-B).
-        val contentMirrorUrl = (project.findProperty("contentMirrorUrl") as String?) ?: "https://content.zemer.io"
+        val contentMirrorUrl = (project.findProperty("contentMirrorUrl") as String?) ?: "https://content.horizonwireless.us"
         buildConfigField("String", "CONTENT_MIRROR_URL", "\"$contentMirrorUrl\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -259,6 +261,9 @@ dependencies {
     implementation(libs.firebase.crashlytics.ndk)
     implementation(libs.firebase.analytics)
     implementation(libs.play.services.auth)
+    implementation(libs.credentials)
+    implementation(libs.credentials.play.services.auth)
+    implementation(libs.googleid)
     implementation(libs.kotlinx.coroutines.play.services)
     ksp(libs.room.compiler)
     implementation(libs.room.ktx)

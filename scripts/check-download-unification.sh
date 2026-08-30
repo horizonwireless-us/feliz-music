@@ -12,7 +12,7 @@
 # manager + Download.STATE_* for the still-present download cache): DownloadUtil.kt, ExoDownloadService.kt.
 #
 # The ONE path:
-#   - state:    com.jtech.zemer.playback.DownloadStateResolver (pure) + ui/component/DownloadStatusUi.kt
+#   - state:    com.jtech.felizmusic.playback.DownloadStateResolver (pure) + ui/component/DownloadStatusUi.kt
 #   - menu row: ui/menu/DownloadMenuItems.kt (downloadMenuItem) decided by DownloadMenuLogic
 #   - header:   ui/component/DownloadStatusUi.kt (AggregateDownloadButton)
 set -u

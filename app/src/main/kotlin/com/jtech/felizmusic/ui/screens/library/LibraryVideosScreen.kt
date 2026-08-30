@@ -1,0 +1,155 @@
+package com.jtech.felizmusic.ui.screens.library
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavController
+import com.jtech.felizmusic.LocalPlayerAwareWindowInsets
+import com.jtech.felizmusic.LocalPlayerConnection
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.constants.CONTENT_TYPE_HEADER
+import com.jtech.felizmusic.extensions.toMediaItem
+import com.jtech.felizmusic.models.toMediaMetadata
+import com.jtech.felizmusic.playback.queues.ListQueue
+import com.jtech.felizmusic.playback.queues.ZemerRadioQueue
+import com.jtech.felizmusic.ui.component.HideOnScrollFAB
+import com.jtech.felizmusic.ui.component.LocalMenuState
+import com.jtech.felizmusic.ui.component.MoreVertMenuButton
+import com.jtech.felizmusic.ui.component.SongListItem
+import com.jtech.felizmusic.ui.menu.SongMenu
+import com.jtech.felizmusic.viewmodels.LibraryVideosViewModel
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun LibraryVideosScreen(
+    navController: NavController,
+    onDeselect: () -> Unit,
+    viewModel: LibraryVideosViewModel = hiltViewModel(),
+) {
+    val menuState = LocalMenuState.current
+    val haptic = LocalHapticFeedback.current
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val isPlaying = playerConnection.isPlaying.collectAsState().value
+    val mediaMetadata = playerConnection.mediaMetadata.collectAsState().value
+
+    val videos = viewModel.videos.collectAsState().value
+    val videosTitle = stringResource(R.string.videos)
+
+    val lazyListState = rememberLazyListState()
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        LazyColumn(
+            state = lazyListState,
+            contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
+        ) {
+            item(
+                key = "filter",
+                contentType = CONTENT_TYPE_HEADER,
+            ) {
+                FilterChip(
+                    label = { Text(stringResource(R.string.videos)) },
+                    selected = true,
+                    colors = FilterChipDefaults.filterChipColors(containerColor = MaterialTheme.colorScheme.surface),
+                    onClick = onDeselect,
+                    shape = RoundedCornerShape(16.dp),
+                    leadingIcon = {
+                        Icon(
+                            painter = painterResource(R.drawable.close),
+                            contentDescription = stringResource(R.string.close)
+                        )
+                    },
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                        .fillMaxWidth()
+                )
+            }
+
+            itemsIndexed(videos, key = { _, it -> it.id }) { index, video ->
+                SongListItem(
+                    song = video.copy(song = video.song.copy(isVideo = true)),
+                    showInLibraryIcon = true,
+                    isPlaying = isPlaying && mediaMetadata?.id == video.id,
+                    isActive = mediaMetadata?.id == video.id,
+                    trailingContent = {
+                        MoreVertMenuButton(
+                            onClick = {
+                                menuState.show {
+                                    SongMenu(
+                                        originalSong = video,
+                                        navController = navController,
+                                        onDismiss = menuState::dismiss,
+                                    )
+                                }
+                            },
+                        )
+                    },
+                    modifier =
+                    Modifier
+                        .combinedClickable(
+                            onClick = {
+                                // Audio-first always (I2); video is a per-play in-player toggle, not an entry point (D3).
+                                if (video.id == mediaMetadata?.id) {
+                                    playerConnection.playPause()
+                                } else {
+                                    playerConnection.playQueue(
+                                        ListQueue(
+                                            title = videosTitle,
+                                            items = videos.map { it.toMediaItem() },
+                                            startIndex = index,
+                                        )
+                                    )
+                                }
+                            },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                menuState.show {
+                                    SongMenu(
+                                        originalSong = video,
+                                        navController = navController,
+                                        onDismiss = menuState::dismiss,
+                                    )
+                                }
+                            },
+                        ),
+                )
+            }
+        }
+
+        HideOnScrollFAB(
+            visible = videos.isNotEmpty(),
+            lazyListState = lazyListState,
+            icon = R.drawable.playlist_play,
+            onClick = {
+                videos.firstOrNull()?.let { first ->
+                    playerConnection.playQueue(
+                        ZemerRadioQueue.song(first.toMediaMetadata(), playerConnection.service)
+                    )
+                }
+            }
+        )
+    }
+}

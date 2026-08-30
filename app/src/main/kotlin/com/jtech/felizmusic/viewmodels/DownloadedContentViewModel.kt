@@ -1,0 +1,51 @@
+package com.jtech.felizmusic.viewmodels
+
+import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.jtech.felizmusic.constants.SongSortType
+import com.jtech.felizmusic.constants.VideoDownloadsInMusicKey
+import com.jtech.felizmusic.db.MusicDatabase
+import com.jtech.felizmusic.statuses.StatusDownloadManager
+import com.jtech.felizmusic.utils.dataStore
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import javax.inject.Inject
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@HiltViewModel
+class DownloadedContentViewModel @Inject constructor(
+    @ApplicationContext context: Context,
+    database: MusicDatabase,
+    statusDownloadManager: StatusDownloadManager,
+) : ViewModel() {
+
+    // Mirrors the pref the Music list itself honors, so the tile count always matches the opened
+    // list (video-songs count in Music too while VideoDownloadsInMusicKey is on).
+    val downloadedMusicCount = context.dataStore.data
+        .map { it[VideoDownloadsInMusicKey] ?: true }
+        .distinctUntilChanged()
+        .flatMapLatest { database.downloadedSongsByCreateDateAsc(includeVideos = it) }
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+
+    val downloadedVideoCount = database.downloadedVideos()
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+
+    val downloadedStatusCount = statusDownloadManager.downloads
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+
+    // Downloaded podcast episodes (isEpisode = 1) - excluded from the Music/Videos lists, surfaced by
+    // the "Podcasts" tile which opens the auto_playlist/downloaded_episodes screen.
+    val downloadedPodcastCount = database.downloadedEpisodes(SongSortType.CREATE_DATE, descending = true)
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.Lazily, 0)
+}

@@ -145,7 +145,7 @@
 
                 <data android:scheme="http" />
                 <data android:scheme="https" />
-                <data android:host="music.zemer.io" />
+                <data android:host="music.horizonwireless.us" />
                 <!-- video prefix -->
                 <data android:pathPrefix="/watch" />
                 <!-- channel prefix -->
@@ -165,7 +165,7 @@
 
                 <data android:scheme="http" />
                 <data android:scheme="https" />
-                <data android:host="video.zemer.io" />
+                <data android:host="video.horizonwireless.us" />
                 <!-- video prefix -->
                 <data android:pathPrefix="/watch" />
             </intent-filter>
@@ -199,7 +199,7 @@
             android:name=".utils.updater.InstallReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.jtech.zemer.INSTALL_STATUS" />
+                <action android:name="com.jtech.felizmusic.INSTALL_STATUS" />
             </intent-filter>
         </receiver>
 

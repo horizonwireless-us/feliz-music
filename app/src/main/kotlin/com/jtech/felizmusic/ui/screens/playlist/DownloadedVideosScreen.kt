@@ -1,0 +1,481 @@
+package com.jtech.felizmusic.ui.screens.playlist
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.util.fastSumBy
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.navigation.NavController
+import coil3.compose.AsyncImage
+import com.jtech.felizmusic.LocalPlayerAwareWindowInsets
+import com.jtech.felizmusic.LocalPlayerConnection
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.constants.AlbumThumbnailSize
+import com.jtech.felizmusic.constants.SongSortDescendingKey
+import com.jtech.felizmusic.constants.SongSortType
+import com.jtech.felizmusic.constants.SongSortTypeKey
+import com.jtech.felizmusic.constants.ThumbnailCornerRadius
+import com.jtech.felizmusic.constants.VideoDownloadsInMusicKey
+import com.jtech.felizmusic.ui.component.SwitchPreference
+import com.jtech.felizmusic.db.entities.Song
+import com.jtech.felizmusic.extensions.toMediaItem
+import com.jtech.felizmusic.playback.queues.ListQueue
+import com.jtech.felizmusic.ui.component.AppBarTitle
+import com.jtech.felizmusic.ui.component.AutoResizeText
+import com.jtech.felizmusic.ui.component.DraggableScrollbar
+import com.jtech.felizmusic.ui.component.EmptyPlaceholder
+import com.jtech.felizmusic.ui.component.FontSizeRange
+import com.jtech.felizmusic.ui.component.IconButton
+import com.jtech.felizmusic.ui.component.LocalMenuState
+import com.jtech.felizmusic.ui.component.MoreVertMenuButton
+import com.jtech.felizmusic.ui.component.SelectionActions
+import com.jtech.felizmusic.ui.component.SongListItem
+import com.jtech.felizmusic.ui.component.SortHeader
+import com.jtech.felizmusic.ui.component.zemerTopAppBarColors
+import com.jtech.felizmusic.ui.menu.SelectionSongMenu
+import com.jtech.felizmusic.ui.menu.SongMenu
+import com.jtech.felizmusic.ui.utils.ItemWrapper
+import com.jtech.felizmusic.ui.utils.backToMain
+import com.jtech.felizmusic.utils.makeTimeString
+import com.jtech.felizmusic.utils.rememberEnumPreference
+import com.jtech.felizmusic.utils.rememberPreference
+import com.jtech.felizmusic.viewmodels.DownloadedVideosViewModel
+
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+fun DownloadedVideosScreen(
+    navController: NavController,
+    scrollBehavior: TopAppBarScrollBehavior,
+    viewModel: DownloadedVideosViewModel = hiltViewModel(),
+) {
+    val menuState = LocalMenuState.current
+    val haptic = LocalHapticFeedback.current
+    val focusManager = LocalFocusManager.current
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val isPlaying by playerConnection.isPlaying.collectAsState()
+    val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
+
+    val videos by viewModel.downloadedVideos.collectAsState(null)
+    val downloadedVideosTitle = stringResource(R.string.downloaded_videos)
+    val mutableVideos = remember { mutableStateListOf<Song>() }
+
+    var isSearching by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf(TextFieldValue()) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(isSearching) {
+        if (isSearching) {
+            focusRequester.requestFocus()
+        }
+    }
+
+    val videoLength = remember(videos) {
+        videos?.fastSumBy { it.song.duration } ?: 0
+    }
+
+    val wrappedVideos = remember(videos) {
+        videos?.map { item -> ItemWrapper(item) }?.toMutableStateList() ?: mutableStateListOf()
+    }
+
+    var selection by remember { mutableStateOf(false) }
+
+    if (isSearching) {
+        BackHandler {
+            isSearching = false
+            query = TextFieldValue()
+        }
+    } else if (selection) {
+        BackHandler {
+            selection = false
+        }
+    }
+
+    val (sortType, onSortTypeChange) = rememberEnumPreference(
+        SongSortTypeKey,
+        SongSortType.CREATE_DATE
+    )
+    val (sortDescending, onSortDescendingChange) = rememberPreference(SongSortDescendingKey, true)
+    val (videosInMusic, onVideosInMusicChange) = rememberPreference(VideoDownloadsInMusicKey, true)
+
+    LaunchedEffect(videos) {
+        mutableVideos.apply {
+            clear()
+            videos?.let { addAll(it) }
+        }
+    }
+
+    val filteredVideos = remember(wrappedVideos, query) {
+        if (query.text.isEmpty()) wrappedVideos
+        else wrappedVideos.filter { wrapper ->
+            val video = wrapper.item
+            video.song.title.contains(query.text, true) ||
+                    video.artists.any { it.name.contains(query.text, true) }
+        }
+    }
+
+    val state = rememberLazyListState()
+
+    Box(
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        LazyColumn(
+            state = state,
+            contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues(),
+        ) {
+            if (videos != null) {
+                if (videos!!.isEmpty()) {
+                    item(key = "empty_placeholder") {
+                        EmptyPlaceholder(
+                            icon = R.drawable.slow_motion_video,
+                            text = stringResource(R.string.no_downloaded_videos),
+                        )
+                    }
+                } else {
+                    if (!isSearching) {
+                        item(key = "playlist_header") {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.padding(12.dp),
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier
+                                            .size(AlbumThumbnailSize)
+                                            .clip(RoundedCornerShape(ThumbnailCornerRadius))
+                                            .fillMaxWidth(),
+                                    ) {
+                                        AsyncImage(
+                                            model = videos!![0].song.thumbnailUrl,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(ThumbnailCornerRadius)),
+                                        )
+                                    }
+
+                                    Column(
+                                        verticalArrangement = Arrangement.Center,
+                                    ) {
+                                        AutoResizeText(
+                                            text = stringResource(R.string.downloaded_videos),
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis,
+                                            fontSizeRange = FontSizeRange(16.sp, 22.sp),
+                                        )
+
+                                        Text(
+                                            text = pluralStringResource(
+                                                R.plurals.n_video,
+                                                videos!!.size,
+                                                videos!!.size,
+                                            ),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Normal,
+                                        )
+
+                                        Text(
+                                            text = makeTimeString(videoLength * 1000L),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Normal,
+                                        )
+
+                                        Row {
+                                            IconButton(
+                                                onClick = {
+                                                    playerConnection.addToQueue(
+                                                        items = videos!!.map { it.toMediaItem() },
+                                                    )
+                                                },
+                                            ) {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.queue_music),
+                                                    contentDescription = null,
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                PlaylistPlayShuffleButtons(
+                                    onPlay = {
+                                        // Audio-first always (I2); video is a per-play in-player toggle (D3).
+                                        playerConnection.playQueue(
+                                            ListQueue(
+                                                title = downloadedVideosTitle,
+                                                items = videos!!.map { it.toMediaItem() },
+                                            )
+                                        )
+                                    },
+                                    onShuffle = {
+                                        playerConnection.playQueue(
+                                            ListQueue(
+                                                title = downloadedVideosTitle,
+                                                items = videos!!.shuffled().map { it.toMediaItem() },
+                                            )
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
+
+                    item(key = "videos_in_music_toggle") {
+                        // Downloaded video-songs double as ordinary audio-first song rows in the
+                        // downloaded MUSIC surfaces (the one muxed file serves both renditions;
+                        // in-player Song/Video toggle picks the rendition per play). Opt out here.
+                        SwitchPreference(
+                            title = { Text(stringResource(R.string.video_downloads_in_music)) },
+                            description = stringResource(R.string.video_downloads_in_music_description),
+                            checked = videosInMusic,
+                            onCheckedChange = onVideosInMusicChange,
+                        )
+                    }
+
+                    item(key = "videos_header") {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 16.dp),
+                        ) {
+                            SortHeader(
+                                sortType = sortType,
+                                sortDescending = sortDescending,
+                                onSortTypeChange = onSortTypeChange,
+                                onSortDescendingChange = onSortDescendingChange,
+                                sortTypeText = { sortType ->
+                                    when (sortType) {
+                                        SongSortType.CREATE_DATE -> R.string.sort_by_create_date
+                                        SongSortType.NAME -> R.string.sort_by_name
+                                        SongSortType.ARTIST -> R.string.sort_by_artist
+                                        SongSortType.PLAY_TIME -> R.string.sort_by_play_time
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                }
+
+                itemsIndexed(
+                    items = filteredVideos,
+                    key = { _, video -> video.item.id },
+                ) { index, videoWrapper ->
+                    SongListItem(
+                        song = videoWrapper.item,
+                        isActive = videoWrapper.item.song.id == mediaMetadata?.id,
+                        isPlaying = isPlaying,
+                        showInLibraryIcon = true,
+                        trailingContent = {
+                            MoreVertMenuButton(
+                                onClick = {
+                                    menuState.show {
+                                        SongMenu(
+                                            originalSong = videoWrapper.item,
+                                            navController = navController,
+                                            onDismiss = menuState::dismiss,
+                                        )
+                                    }
+                                },
+                            )
+                        },
+                        isSelected = videoWrapper.isSelected && selection,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .combinedClickable(
+                                onClick = {
+                                    if (!selection) {
+                                        // Audio-first always (I2); video is a per-play in-player toggle (D3).
+                                        playerConnection.playQueue(
+                                            ListQueue(
+                                                title = downloadedVideosTitle,
+                                                items = filteredVideos.map { it.item.toMediaItem() },
+                                                startIndex = index,
+                                            )
+                                        )
+                                    } else {
+                                        videoWrapper.isSelected = !videoWrapper.isSelected
+                                    }
+                                },
+                                onLongClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    if (!selection) {
+                                        selection = true
+                                        wrappedVideos.forEach { it.isSelected = false }
+                                        videoWrapper.isSelected = true
+                                    }
+                                },
+                            )
+                            .animateItem()
+                    )
+                }
+            }
+        }
+
+        DraggableScrollbar(
+            modifier = Modifier
+                .padding(
+                    LocalPlayerAwareWindowInsets.current.union(WindowInsets.ime)
+                        .asPaddingValues()
+                )
+                .align(Alignment.CenterEnd),
+            scrollState = state,
+            headerItems = 2
+        )
+
+        TopAppBar(
+            title = {
+                when {
+                    selection -> {
+                        val count = wrappedVideos.count { it.isSelected }
+                        AppBarTitle(
+                            text = pluralStringResource(R.plurals.n_video, count, count)
+                        )
+                    }
+                    isSearching -> {
+                        TextField(
+                            value = query,
+                            onValueChange = { query = it },
+                            placeholder = {
+                                Text(
+                                    text = stringResource(R.string.search),
+                                    style = MaterialTheme.typography.titleLarge
+                                )
+                            },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.titleLarge,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                disabledIndicatorColor = Color.Transparent,
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequester)
+                        )
+                    }
+                    else -> {
+                        AppBarTitle(text = stringResource(R.string.downloaded_videos))
+                    }
+                }
+            },
+            navigationIcon = {
+                IconButton(
+                    onClick = {
+                        when {
+                            isSearching -> {
+                                isSearching = false
+                                query = TextFieldValue()
+                                focusManager.clearFocus()
+                            }
+                            selection -> {
+                                selection = false
+                            }
+                            else -> {
+                                navController.navigateUp()
+                            }
+                        }
+                    },
+                    onLongClick = {
+                        if (!isSearching && !selection) {
+                            navController.backToMain()
+                        }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            if (selection) R.drawable.close else R.drawable.arrow_back
+                        ),
+                        contentDescription = null
+                    )
+                }
+            },
+            actions = {
+                if (selection) {
+                    SelectionActions(
+                        wrapped = wrappedVideos,
+                        onMore = {
+                            menuState.show {
+                                SelectionSongMenu(
+                                    songSelection = wrappedVideos.filter { it.isSelected }
+                                        .map { it.item },
+                                    onDismiss = menuState::dismiss,
+                                    clearAction = { selection = false },
+                                )
+                            }
+                        },
+                    )
+                } else if (!isSearching) {
+                    IconButton(
+                        onClick = { isSearching = true }
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.search),
+                            contentDescription = null
+                        )
+                    }
+                }
+            },
+            colors = zemerTopAppBarColors(),
+        )
+    }
+}

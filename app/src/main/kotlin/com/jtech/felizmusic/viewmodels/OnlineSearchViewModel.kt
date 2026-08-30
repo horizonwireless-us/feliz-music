@@ -1,0 +1,265 @@
+package com.jtech.felizmusic.viewmodels
+
+import android.content.Context
+import android.net.Uri
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.metrolist.innertube.YouTube.SearchFilter
+import com.metrolist.innertube.pages.SearchSummaryPage
+import com.metrolist.innertube.pages.SearchSummary
+import com.jtech.felizmusic.constants.BlockVideosKey
+import com.jtech.felizmusic.constants.HideExplicitKey
+import com.jtech.felizmusic.db.MusicDatabase
+import com.jtech.felizmusic.db.entities.Song
+import com.jtech.felizmusic.models.ItemsPage
+import com.jtech.felizmusic.models.toMediaMetadata
+import com.jtech.felizmusic.search.ResultDedupe
+import com.jtech.felizmusic.search.ZemerSearchRepository
+import com.jtech.felizmusic.search.zemerSearchOptions
+import com.jtech.felizmusic.tracking.Tracker
+import com.jtech.felizmusic.utils.dataStore
+import com.jtech.felizmusic.utils.getSuspend
+import com.jtech.felizmusic.utils.reportException
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+
+@HiltViewModel
+class OnlineSearchViewModel
+@Inject
+constructor(
+    @ApplicationContext val context: Context,
+    val database: MusicDatabase,
+    private val zemerRepo: ZemerSearchRepository,
+    private val savedStateHandle: SavedStateHandle,
+) : ViewModel() {
+    val query =
+        requireNotNull(savedStateHandle.get<String>("query")) {
+            "query is required but was not provided in navigation arguments"
+        }.let(Uri::decode)
+    private val initialFilter = savedStateHandle.get<String>("filter")?.let { filterParam ->
+        when (filterParam) {
+            com.jtech.felizmusic.search.SEARCH_FILTER_ALBUMS -> SearchFilter.FILTER_ALBUM
+            com.jtech.felizmusic.search.SEARCH_FILTER_SONGS -> SearchFilter.FILTER_SONG
+            "artists" -> SearchFilter.FILTER_ARTIST
+            "videos" -> SearchFilter.FILTER_VIDEO
+            "playlists" -> SearchFilter.FILTER_COMMUNITY_PLAYLIST
+            "community_playlists" -> SearchFilter.FILTER_COMMUNITY_PLAYLIST
+            "featured_playlists" -> SearchFilter.FILTER_FEATURED_PLAYLIST
+            // The Podcasts browse's "Search episodes for 'X'" hand-off lands straight on the
+            // Episodes chip (a Zemer-only filter; response-side, never sent to a server).
+            com.jtech.felizmusic.search.SEARCH_FILTER_EPISODES -> com.jtech.felizmusic.search.ZEMER_FILTER_EPISODE
+            else -> null
+        }
+    }
+    val filter = MutableStateFlow<SearchFilter?>(initialFilter)
+    var summaryPage by mutableStateOf<SearchSummaryPage?>(null)
+    val viewStateMap = mutableStateMapOf<String, ItemsPage?>()
+    val isSummaryLoading = MutableStateFlow(true)
+    val summaryError = MutableStateFlow<String?>(null)
+    val filterLoading = mutableStateMapOf<String, Boolean>()
+    val filterError = mutableStateMapOf<String, String?>()
+
+    // Telemetry: ONE `search` event per executed query (this ViewModel is created per submitted
+    // query) — the first successful load fires it; chip switches and engine toggles never re-fire.
+    // A zero-result search is the most valuable event and is sent faithfully. Persisted in the
+    // SavedStateHandle: a back-stack entry restored after process death recreates the ViewModel and
+    // reloads results, and must NOT re-fire an event for a query executed in a past session.
+    private var searchTracked: Boolean
+        get() = savedStateHandle.get<Boolean>(SEARCH_TRACKED_KEY) ?: false
+        set(value) {
+            savedStateHandle[SEARCH_TRACKED_KEY] = value
+        }
+
+    private fun trackSearchOnce(results: Int) {
+        if (searchTracked) return
+        searchTracked = true
+        // `provider` stays in the wire contract (the dashboard splits on it); the app is single-engine
+        // now, so it is always "zemer". (The YouTube engine was removed per the handoff greenlight in
+        // ~/zemer-fix/handoff-docs/zemer-app-artist-album-innertube-swap.md.)
+        Tracker.search(query, results, SEARCH_TRACKED_PROVIDER)
+    }
+
+    init {
+        viewModelScope.launch {
+            // collectLatest so a filter change cancels an in-flight (up to 8s) request instead of
+            // queueing behind it — otherwise the chip switch appears frozen.
+            filter.collectLatest { selectedFilter ->
+                if (selectedFilter == null) {
+                    loadSummary(force = summaryPage == null)
+                } else {
+                    loadFiltered(selectedFilter, force = viewStateMap[selectedFilter.value] == null)
+                }
+            }
+        }
+    }
+
+    private suspend fun loadSummary(force: Boolean = false) {
+        if (!force && summaryPage != null) return
+
+        // Prevent searching with empty query
+        if (query.isBlank()) {
+            summaryError.value = "Please enter a search query"
+            isSummaryLoading.value = false
+            return
+        }
+
+        isSummaryLoading.value = true
+        summaryError.value = null
+
+        val result =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    // Zemer results are already whitelist-scoped server-side; do not re-filter.
+                    val summaries = zemerRepo.summary(query, zemerSearchOptions(context)).summaries
+                    // One-result-per-song (I3): drop a video row whose audio counterpart is present on the
+                    // same summary (authoritative match only — see ResultDedupe). Only when videos are
+                    // unblocked; blocked mode is frozen byte-for-byte (spec §1(a)).
+                    val blockVideos = context.dataStore.getSuspend(BlockVideosKey, false)
+                    if (blockVideos) summaries else ResultDedupe.dedupeSummaries(summaries)
+                }
+            }
+
+        result.onSuccess { summaries ->
+            summaryPage = SearchSummaryPage(
+                summaries = summaries
+            )
+            trackSearchOnce(results = summaries.sumOf { it.items.size })
+
+            if (summaries.isEmpty()) {
+                summaryError.value = "No results found for \"$query\""
+            }
+        }.onFailure { error ->
+            if (error is CancellationException) throw error // a superseded load, not a search failure
+            summaryError.value = "Search error: ${error.message ?: "Unknown error"}"
+            reportException(error)
+        }
+        isSummaryLoading.value = false
+    }
+
+    private suspend fun loadFiltered(filter: SearchFilter, force: Boolean = false) {
+        val key = filter.value
+        if (!force && viewStateMap[key] != null) return
+
+        // Prevent searching with empty query
+        if (query.isBlank()) {
+            filterError[key] = "Please enter a search query"
+            filterLoading[key] = false
+            return
+        }
+
+        filterLoading[key] = true
+        filterError[key] = null
+
+        val result =
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val items = mutableListOf<com.metrolist.innertube.models.YTItem>()
+
+                    // Local DB results first, so locally-saved artists/albums are surfaced even when
+                    // the server misses them. No hide-explicit pass here: artists carry no explicit
+                    // flag (the old !isLocal predicate hid LOCAL-FILE artists, not explicit ones),
+                    // and the Zemer corpus carries no explicit content to begin with.
+                    when (filter) {
+                        SearchFilter.FILTER_ARTIST -> {
+                            val localArtists = database.searchArtists(query).first()
+                            items.addAll(
+                                localArtists.map { artist ->
+                                    com.metrolist.innertube.models.ArtistItem(
+                                        id = artist.id,
+                                        title = artist.title,
+                                        thumbnail = artist.thumbnailUrl,
+                                        shuffleEndpoint = null,
+                                        radioEndpoint = null,
+                                    )
+                                }
+                            )
+                        }
+                        SearchFilter.FILTER_ALBUM -> {
+                            val hideExplicit = context.dataStore.getSuspend(HideExplicitKey, false)
+                            val localAlbums = database.searchAlbums(query).first()
+                                .filter { if (hideExplicit) !it.album.explicit else true }
+                            items.addAll(
+                                localAlbums.map { album ->
+                                    com.metrolist.innertube.models.AlbumItem(
+                                        browseId = album.id,
+                                        playlistId = album.album.playlistId ?: album.id,
+                                        title = album.title,
+                                        artists = album.artists.map { artist ->
+                                            com.metrolist.innertube.models.Artist(
+                                                name = artist.name,
+                                                id = artist.id,
+                                            )
+                                        },
+                                        year = album.album.year,
+                                        thumbnail = album.thumbnailUrl ?: "",
+                                    )
+                                }
+                            )
+                        }
+                        else -> {} // Songs/videos/playlists: online only (local songs are local search)
+                    }
+
+                    // Already whitelist-scoped; Zemer has no pagination (continuation == null).
+                    items.addAll(zemerRepo.filtered(query, filter, zemerSearchOptions(context)).items)
+                    ItemsPage(items.distinctBy { it.id }, null)
+                }
+            }
+
+        result.onSuccess { itemsPage ->
+            viewStateMap[key] = itemsPage
+            trackSearchOnce(results = itemsPage.items.size)
+            if (itemsPage.items.isEmpty()) {
+                filterError[key] = "No results found for \"$query\""
+            }
+        }.onFailure { error ->
+            if (error is CancellationException) throw error // a superseded load, not a search failure
+            filterError[key] = "Search error: ${error.message ?: "Unknown error"}"
+            reportException(error)
+        }
+        filterLoading[key] = false
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            val currentFilter = filter.value
+            // Drop the Zemer response cache so retry actually re-queries the server instead of
+            // re-serving the cached (possibly empty) result; clearing VM state alone is not enough.
+            zemerRepo.invalidate()
+            summaryPage = null
+            viewStateMap.clear()
+            filterLoading.clear()
+            filterError.clear()
+            summaryError.value = null
+            isSummaryLoading.value = true
+            if (currentFilter == null) {
+                loadSummary(force = true)
+            } else {
+                loadFiltered(currentFilter, force = true)
+            }
+        }
+    }
+
+    private companion object {
+        const val SEARCH_TRACKED_KEY = "searchTracked"
+    }
+}
+
+/**
+ * The `search` event's `provider` wire value. The server contract accepts "zemer"/"youtube" and
+ * stores anything else as NULL — single-engine now, so it is always "zemer". Top-level + internal so
+ * the wire value is pinned by a unit test.
+ */
+internal const val SEARCH_TRACKED_PROVIDER = "zemer"

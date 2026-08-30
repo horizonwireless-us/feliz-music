@@ -6,10 +6,10 @@
 | --- | --- |
 | Database class | `MusicDatabase.InternalDatabase` |
 | Wrapper class | `MusicDatabase` delegates `DatabaseDao` to `delegate.dao` |
-| Schema version | `34` |
-| Identity hash | `34aedfb248fca6ea1217dc974399c622` |
-| Entity count in schema 34 | `19` |
-| Schema files tracked | `34` |
+| Schema version | `32` |
+| Identity hash | `c0d9725767925415a739bfd72a3d4335` |
+| Entity count in schema 32 | `16` |
+| Schema files tracked | `32` |
 | DAO file | `app/src/main/kotlin/com/jtech/zemer/db/DatabaseDao.kt` |
 | DAO methods found by regex | `199` |
 
@@ -53,7 +53,6 @@
 | 23 | 24 | `none` |
 | 24 | 25 | `none` |
 | 25 | 26 | `none` |
-| 32 | 33 | `none` |
 
 ## Manual migrations declared in `MusicDatabase.kt`
 
@@ -66,9 +65,8 @@
 | `MIGRATION_29_30` | 29 | 30 |
 | `MIGRATION_30_31` | 30 | 31 |
 | `MIGRATION_31_32` | 31 | 32 |
-| `MIGRATION_33_34` | 33 | 34 |
 
-## Schema 34 entities
+## Schema 32 entities
 
 ### `song`
 
@@ -399,6 +397,7 @@
 | `forgottenFavorites` | `now: Long = System.currentTimeMillis(` | `): Flow<List<Song>>` |
 | `recommendedAlbum` | `now: Long = System.currentTimeMillis(` | `,` |
 | `song` | `songId: String?` | `Flow<Song?>` |
+| `getSongById` | `songId: String` | `Song?` |
 | `getSongByIdBlocking` | `songId: String` | `Song?` |
 | `getSongsByIds` | `songIds: List<String>` | `List<Song>` |
 | `videos` | `` | `Flow<List<Song>>` |
@@ -474,6 +473,7 @@
 | `uploadedSongsByPlayTimeAsc` | `` | `Flow<List<Song>>` |
 | `uploadedSongsByRowIdAsc` | `` | `Flow<List<Song>>` |
 | `uploadedSongs` | `sortType: SongSortType, descending: Boolean,` | `` |
+| `searchSongs` | `query: String, previewSize: Int = Int.MAX_VALUE,` | `Flow<List<Song>>` |
 | `searchArtists` | `query: String, previewSize: Int = Int.MAX_VALUE,` | `Flow<List<Artist>>` |
 | `searchAlbums` | `query: String, previewSize: Int = Int.MAX_VALUE,` | `Flow<List<Album>>` |
 | `searchPlaylists` | `query: String, previewSize: Int = Int.MAX_VALUE,` | `Flow<List<Playlist>>` |
@@ -542,6 +542,7 @@
 | `insertWhitelist` | `whitelistEntries: List<ArtistWhitelistEntity>` | `@Query("SELECT artistId FROM artist_whitelist")` |
 | `getAllWhitelistedArtistIds` | `` | `Flow<List<String>>` |
 | `getAllWhitelistedArtistIdsSync` | `` | `List<String>` |
+| `getAllWhitelistedArtists` | `` | `Flow<List<ArtistWhitelistEntity>>` |
 | `getWhitelistEntry` | `artistId: String` | `ArtistWhitelistEntity?` |
 | `getWhitelistEntriesSync` | `` | `List<ArtistWhitelistEntity>` |
 | `isArtistWhitelisted` | `artistId: String` | `Boolean` |

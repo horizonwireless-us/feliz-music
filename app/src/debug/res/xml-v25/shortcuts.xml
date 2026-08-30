@@ -6,9 +6,9 @@
         android:shortcutId="search"
         android:shortcutShortLabel="@string/search">
         <intent
-            android:action="com.jtech.zemer.action.SEARCH"
-            android:targetClass="com.jtech.zemer.MainActivity"
-            android:targetPackage="com.jtech.zemer" />
+            android:action="com.jtech.felizmusic.action.SEARCH"
+            android:targetClass="com.jtech.felizmusic.MainActivity"
+            android:targetPackage="com.jtech.felizmusic" />
     </shortcut>
     <shortcut
         android:enabled="true"
@@ -16,8 +16,8 @@
         android:shortcutId="library"
         android:shortcutShortLabel="@string/filter_library">
         <intent
-            android:action="com.jtech.zemer.action.LIBRARY"
-            android:targetClass="com.jtech.zemer.MainActivity"
-            android:targetPackage="com.jtech.zemer" />
+            android:action="com.jtech.felizmusic.action.LIBRARY"
+            android:targetClass="com.jtech.felizmusic.MainActivity"
+            android:targetPackage="com.jtech.felizmusic" />
     </shortcut>
 </shortcuts>

@@ -1,0 +1,76 @@
+package com.jtech.felizmusic.extensions
+
+import androidx.core.net.toUri
+import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata.MEDIA_TYPE_MUSIC
+import com.metrolist.innertube.models.EpisodeItem
+import com.metrolist.innertube.models.SongItem
+import com.jtech.felizmusic.db.entities.Song
+import com.jtech.felizmusic.models.MediaMetadata
+import com.jtech.felizmusic.models.toMediaMetadata
+import com.jtech.felizmusic.ui.utils.resize
+
+val MediaItem.metadata: MediaMetadata?
+    get() = localConfiguration?.tag as? MediaMetadata
+
+fun Song.toMediaItem() =
+    MediaItem
+        .Builder()
+        .setMediaId(song.id)
+        .setUri(song.id)
+        .setCustomCacheKey(song.id)
+        .setTag(toMediaMetadata())
+        .setMediaMetadata(
+            androidx.media3.common.MediaMetadata
+                .Builder()
+                .setTitle(song.title)
+                .setSubtitle(artists.joinToString { it.name })
+                .setArtist(artists.joinToString { it.name })
+                .setArtworkUri(song.thumbnailUrl?.toUri())
+                .setAlbumTitle(song.albumName)
+                .setMediaType(MEDIA_TYPE_MUSIC)
+                .build(),
+        ).build()
+
+fun SongItem.toMediaItem() =
+    MediaItem
+        .Builder()
+        .setMediaId(id)
+        .setUri(id)
+        .setCustomCacheKey(id)
+        .setTag(toMediaMetadata())
+        .setMediaMetadata(
+            androidx.media3.common.MediaMetadata
+                .Builder()
+                .setTitle(title)
+                .setSubtitle(artists.joinToString { it.name })
+                .setArtist(artists.joinToString { it.name })
+                .setArtworkUri(thumbnail.resize(544, 544).toUri())
+                .setAlbumTitle(album?.name)
+                .setMediaType(MEDIA_TYPE_MUSIC)
+                .build(),
+        ).build()
+
+// EpisodeItem.toMediaMetadata() already produces the same fields (id, title, listOfNotNull(author) ->
+// subtitle/artist, thumbnail.resize(544,544), podcast?.name -> albumTitle), so build the item through it
+// rather than keeping a second hand-rolled copy that could drift.
+fun EpisodeItem.toMediaItem() = toMediaMetadata().toMediaItem()
+
+fun MediaMetadata.toMediaItem() =
+    MediaItem
+        .Builder()
+        .setMediaId(id)
+        .setUri(id)
+        .setCustomCacheKey(id)
+        .setTag(this)
+        .setMediaMetadata(
+            androidx.media3.common.MediaMetadata
+                .Builder()
+                .setTitle(title)
+                .setSubtitle(artists.joinToString { it.name })
+                .setArtist(artists.joinToString { it.name })
+                .setArtworkUri(thumbnailUrl?.toUri())
+                .setAlbumTitle(album?.title)
+                .setMediaType(MEDIA_TYPE_MUSIC)
+                .build(),
+        ).build()

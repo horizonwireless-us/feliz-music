@@ -7,7 +7,7 @@
 | Gradle module | `:app` |
 | Namespace / application ID | `com.jtech.zemer` / `com.jtech.zemer` |
 | Compile / min / target SDK | `36` / `26` / `36` |
-| Version code/name | `38` / `38` |
+| Version code/name | `25` / `25` |
 | Kotlin/JVM target | JVM 21 |
 | Compose | Enabled |
 | BuildConfig fields visible in Gradle | `ARCHITECTURE`, `GOOGLE_TOKEN_EXCHANGE_URL` |
@@ -70,6 +70,7 @@
 | `com.jtech.zemer.ui.theme` | 4 |
 | `com.jtech.zemer.ui.utils` | 11 |
 | `com.jtech.zemer.utils` | 33 |
+| `com.jtech.zemer.utils.sabr` | 2 |
 | `com.jtech.zemer.viewmodels` | 34 |
 | `com.jtech.zemer.widget` | 1 |
 
@@ -109,6 +110,7 @@
 | `com/jtech/zemer/ui/theme` | 4 |
 | `com/jtech/zemer/ui/utils` | 11 |
 | `com/jtech/zemer/utils` | 33 |
+| `com/jtech/zemer/utils/sabr` | 2 |
 | `com/jtech/zemer/viewmodels` | 34 |
 | `com/jtech/zemer/widget` | 1 |
 
@@ -125,6 +127,6 @@
 | Preferences and sync | `constants/PreferenceKeys.kt`, `utils/DataStore.kt`, `sync/*.kt`, `sync/models/*.kt`, `utils/SyncUtils.kt` |
 | Auth | `auth/*.kt`, auth-related settings/onboarding screens |
 | Lyrics | `lyrics/*.kt`, `lyrics/model/*.kt`, `lrclib`, `simpmusic` modules |
-| Native/assets | `src/main/cpp/CMakeLists.txt`, app resources |
+| Native/assets | `src/main/cpp/CMakeLists.txt`, `src/main/assets/solver/*.js`, app resources |
 
 See the `reference/` docs for per-file metadata.

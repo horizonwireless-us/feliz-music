@@ -1,0 +1,358 @@
+package com.jtech.felizmusic.ui.menu
+
+import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavController
+import com.jtech.felizmusic.LocalDatabase
+import com.jtech.felizmusic.LocalDownloadUtil
+import com.jtech.felizmusic.LocalPlayerConnection
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.db.entities.Song
+import com.jtech.felizmusic.extensions.isPersonalAccountSignedIn
+import com.jtech.felizmusic.extensions.toMediaItem
+import com.jtech.felizmusic.extensions.shareText
+import com.jtech.felizmusic.di.zemerSearchRepository
+import com.jtech.felizmusic.playback.DownloadMenuLogic
+import com.jtech.felizmusic.playback.DownloadStateResolver
+import com.jtech.felizmusic.playback.queues.LocalAlbumRadio
+import com.jtech.felizmusic.search.zemerSearchOptions
+import com.jtech.felizmusic.ui.component.AlreadyInPlaylistDialog
+import com.jtech.felizmusic.ui.component.ArtistChoice
+import com.jtech.felizmusic.ui.component.Material3MenuGroup
+import com.jtech.felizmusic.ui.component.Material3MenuItemData
+import com.jtech.felizmusic.ui.component.NewAction
+import com.jtech.felizmusic.ui.component.NewActionGrid
+import com.jtech.felizmusic.ui.component.SelectArtistDialog
+import com.jtech.felizmusic.ui.component.SongListItem
+import com.jtech.felizmusic.ui.component.YouTubeListItem
+import com.jtech.felizmusic.ui.utils.navigateToArtist
+import com.jtech.felizmusic.utils.reportException
+import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.AlbumItem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import com.jtech.felizmusic.tracking.Tracker
+import com.jtech.felizmusic.tracking.TrackingActionKind
+
+@OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("MutableCollectionMutableState")
+@Composable
+fun YouTubeAlbumMenu(
+    albumItem: AlbumItem,
+    navController: NavController,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val database = LocalDatabase.current
+    val downloadUtil = LocalDownloadUtil.current
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val album by database.albumWithSongs(albumItem.id).collectAsState(initial = null)
+    val coroutineScope = rememberCoroutineScope()
+    // Corpus-native: resolve the album (browseId + playlistId) from the Zemer server, mirroring
+    // AlbumViewModel. No InnerTube YouTube.album() - a non-corpus album is non-whitelisted and its
+    // tracks would bypass the filter; a failed corpus load just leaves the actions empty rather than
+    // silently no-op-ing on a bot-gated InnerTube call.
+    val zemerRepository = remember(context) { context.zemerSearchRepository() }
+
+    LaunchedEffect(Unit) {
+        database.album(albumItem.id).collect { dbAlbum ->
+            if (dbAlbum == null) {
+                val options = zemerSearchOptions(context)
+                runCatching { zemerRepository.album(albumItem.id, albumItem.playlistId, options) }
+                    .onSuccess { page -> page?.let { database.transaction { insert(it) } } }
+                    .onFailure { reportException(it) }
+            }
+        }
+    }
+
+    val mediaStoreDownloads by downloadUtil.getAllMediaStoreDownloads().collectAsState()
+
+    var showChoosePlaylistDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var showErrorPlaylistAddDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    var showReportDialog by remember { mutableStateOf(false) }
+
+    val notAddedList by remember {
+        mutableStateOf(mutableListOf<Song>())
+    }
+
+    AddToPlaylistDialog(
+        isVisible = showChoosePlaylistDialog,
+        onGetSong = { playlist ->
+            // Remote playlist-to-playlist copy is a personal-account write; never issue it under the
+            // shared anonymous (pooled) account. The local add still happens via the dialog.
+            if (isPersonalAccountSignedIn) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    playlist.playlist.browseId?.let { playlistId ->
+                        album?.album?.playlistId?.let { addPlaylistId ->
+                            YouTube.addPlaylistToPlaylist(playlistId, addPlaylistId)
+                        }
+                    }
+                }
+            }
+            album?.songs?.map { it.id }.orEmpty()
+        },
+        onDismiss = { showChoosePlaylistDialog = false }
+    )
+
+    if (showErrorPlaylistAddDialog) {
+        AlreadyInPlaylistDialog(onDismiss = { showErrorPlaylistAddDialog = false }) {
+            items(notAddedList) { song ->
+                SongListItem(song = song)
+            }
+        }
+    }
+
+    var showSelectArtistDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showSelectArtistDialog) {
+        SelectArtistDialog(
+            artists = album?.artists.orEmpty().distinctBy { it.id }
+                .map { ArtistChoice(id = it.id, name = it.name, thumbnailUrl = it.thumbnailUrl) },
+            onDismiss = { showSelectArtistDialog = false },
+            onArtistClick = { artistId ->
+                navController.navigateToArtist(artistId)
+                onDismiss()
+            },
+        )
+    }
+
+    YouTubeListItem(
+        item = albumItem,
+        badges = {},
+        trailingContent = {
+            IconButton(
+                onClick = {
+                    database.query {
+                        album?.album?.toggleLike()?.let(::update)
+                    }
+                },
+            ) {
+                Icon(
+                    painter = painterResource(if (album?.album?.bookmarkedAt != null) R.drawable.favorite else R.drawable.favorite_border),
+                    tint = if (album?.album?.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
+                    contentDescription = null,
+                )
+            }
+        },
+    )
+
+    HorizontalDivider()
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    if (showReportDialog) {
+        ReportContentDialog(
+            subject = mapOf(
+                "artistId" to (albumItem.artists?.firstOrNull()?.id ?: ""),
+                "artistName" to (albumItem.artists?.firstOrNull()?.name ?: ""),
+                "albumId" to albumItem.id,
+                "albumTitle" to albumItem.title,
+            ),
+            onDismiss = { showReportDialog = false },
+        )
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(
+            start = 0.dp,
+            top = 0.dp,
+            end = 0.dp,
+            bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding(),
+        ),
+    ) {
+        item {
+            NewActionGrid(
+                actions = listOf(
+                    NewAction(
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.play),
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        text = stringResource(R.string.play),
+                        onClick = {
+                            onDismiss()
+                            // Corpus-native: play the album's whitelisted tracks, then continue on the
+                            // Zemer /radio?kind=album fill (LocalAlbumRadio), matching AlbumScreen.
+                            album?.takeIf { it.songs.isNotEmpty() }?.let { aws ->
+                                playerConnection.playQueue(LocalAlbumRadio(aws, context = context))
+                            }
+                        }
+                    ),
+                    NewAction(
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.shuffle),
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        text = stringResource(R.string.shuffle),
+                        onClick = {
+                            onDismiss()
+                            album?.takeIf { it.songs.isNotEmpty() }?.let { aws ->
+                                playerConnection.playQueue(
+                                    LocalAlbumRadio(aws.copy(songs = aws.songs.shuffled()), context = context),
+                                )
+                            }
+                        }
+                    ),
+                    NewAction(
+                        icon = {
+                            Icon(
+                                painter = painterResource(R.drawable.share),
+                                contentDescription = null,
+                                modifier = Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        text = stringResource(R.string.share),
+                        onClick = {
+                            onDismiss()
+                            Tracker.action(TrackingActionKind.SHARE, albumItem.browseId)
+                            context.shareText(albumItem.shareLink)
+                        }
+                    )
+                ),
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
+            )
+        }
+
+        item {
+            Material3MenuGroup(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                items = buildList {
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.playlist_play), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.play_next)) },
+                            onClick = {
+                                album
+                                    ?.songs
+                                    ?.map { it.toMediaItem() }
+                                    ?.let(playerConnection::playNext)
+                                onDismiss()
+                            },
+                        )
+                    )
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.queue_music), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.add_to_queue)) },
+                            onClick = {
+                                album
+                                    ?.songs
+                                    ?.map { it.toMediaItem() }
+                                    ?.let(playerConnection::addToQueue)
+                                onDismiss()
+                            },
+                        )
+                    )
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.playlist_add), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.add_to_playlist)) },
+                            onClick = { showChoosePlaylistDialog = true },
+                        )
+                    )
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.warning), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.report_artist)) },
+                            onClick = { showReportDialog = true },
+                        )
+                    )
+                    val songs = album?.songs.orEmpty()
+                    val dlStatus = DownloadStateResolver.aggregateSongs(songs, mediaStoreDownloads)
+                    val dlProgress = DownloadStateResolver.aggregateProgress(songs, mediaStoreDownloads)
+                    downloadMenuItem(
+                        kind = DownloadMenuLogic.collectionRow(dlStatus),
+                        progress = dlProgress,
+                        // Fetch-if-empty: the album loads async, so a first tap before it arrived used
+                        // to be a no-op ("press once does nothing, twice works"). Resolve the songs at
+                        // click time, fetching the album page if the DB doesn't have it yet.
+                        onDownload = {
+                            coroutineScope.launch(Dispatchers.IO) {
+                                var toDownload = database.albumWithSongs(albumItem.id).first()?.songs.orEmpty()
+                                if (toDownload.isEmpty()) {
+                                    val options = zemerSearchOptions(context)
+                                    runCatching { zemerRepository.album(albumItem.id, albumItem.playlistId, options) }
+                                        .onSuccess { page -> page?.let { database.transaction { insert(it) } } }
+                                        .onFailure { reportException(it) }
+                                    toDownload = database.albumWithSongs(albumItem.id).first()?.songs.orEmpty()
+                                }
+                                toDownload.forEach { downloadUtil.downloadToMediaStore(it) }
+                            }
+                        },
+                        onCancel = { songs.forEach { downloadUtil.cancelMediaStoreDownload(it.id) } },
+                        onRetry = { songs.forEach { downloadUtil.retryMediaStoreDownload(it.id) } },
+                        onRemove = { coroutineScope.launch { songs.forEach { downloadUtil.removeDownload(it.id) } } },
+                    )?.let { add(it) }
+                    // Only artists with a real id are navigable — a Zemer search album's artist has a
+                    // null id (channel ids aren't sent there), which would navigate to a dead
+                    // "artist/null". Filter first so "View artist" is hidden when nothing can open.
+                    albumItem.artists?.filter { !it.id.isNullOrBlank() }?.takeIf { it.isNotEmpty() }?.let { artists ->
+                        add(
+                            Material3MenuItemData(
+                                icon = { Icon(painterResource(R.drawable.artist), null, Modifier.size(24.dp)) },
+                                title = { Text(stringResource(R.string.view_artist)) },
+                                onClick = {
+                                    if (artists.size == 1) {
+                                        navController.navigateToArtist(artists[0].id)
+                                        onDismiss()
+                                    } else {
+                                        showSelectArtistDialog = true
+                                    }
+                                },
+                            )
+                        )
+                    }
+                },
+            )
+        }
+
+    }
+}

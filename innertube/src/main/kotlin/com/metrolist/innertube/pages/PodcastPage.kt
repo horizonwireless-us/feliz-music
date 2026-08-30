@@ -6,7 +6,7 @@ import com.metrolist.innertube.models.PodcastItem
 /**
  * A podcast SHOW page: the show header, its episodes, and a paging cursor. Populated by the Zemer
  * server mapper (`ZemerResultMapper.toPodcastPage`) — the old InnerTube renderer parsers were removed
- * when podcast discovery moved to search.zemer.io (playback stays InnerTube, by videoId).
+ * when podcast discovery moved to search.horizonwireless.us (playback stays InnerTube, by videoId).
  */
 data class PodcastPage(
     val podcast: PodcastItem,

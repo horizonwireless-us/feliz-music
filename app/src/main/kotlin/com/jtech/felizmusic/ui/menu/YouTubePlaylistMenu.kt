@@ -1,0 +1,490 @@
+package com.jtech.felizmusic.ui.menu
+
+import android.annotation.SuppressLint
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import com.jtech.felizmusic.LocalDatabase
+import com.jtech.felizmusic.LocalDownloadUtil
+import com.jtech.felizmusic.LocalPlayerConnection
+import com.jtech.felizmusic.R
+import com.jtech.felizmusic.constants.ListThumbnailSize
+import com.jtech.felizmusic.constants.ThumbnailCornerRadius
+import com.jtech.felizmusic.db.MusicDatabase
+import com.jtech.felizmusic.db.entities.PlaylistEntity
+import com.jtech.felizmusic.db.entities.PlaylistSongMap
+import com.jtech.felizmusic.extensions.isPersonalAccountSignedIn
+import com.jtech.felizmusic.utils.filterWhitelisted
+import com.jtech.felizmusic.extensions.toMediaItem
+import com.jtech.felizmusic.extensions.shareText
+import com.jtech.felizmusic.models.MediaMetadata
+import com.jtech.felizmusic.models.toMediaMetadata
+import com.jtech.felizmusic.playback.DownloadMenuLogic
+import com.jtech.felizmusic.playback.DownloadStateResolver
+import com.jtech.felizmusic.playback.queues.YouTubeQueue
+import com.jtech.felizmusic.playback.queues.ZemerRadioQueue
+import com.jtech.felizmusic.tracking.PlaySource
+import com.jtech.felizmusic.ui.component.AlreadyInPlaylistDialog
+import com.jtech.felizmusic.ui.component.DefaultDialog
+import com.jtech.felizmusic.ui.component.Material3MenuGroup
+import com.jtech.felizmusic.ui.component.Material3MenuItemData
+import com.jtech.felizmusic.ui.component.NewAction
+import com.jtech.felizmusic.ui.component.NewActionGrid
+import com.jtech.felizmusic.ui.component.YouTubeListItem
+import com.jtech.felizmusic.ui.utils.resize
+import com.jtech.felizmusic.utils.joinByBullet
+import com.jtech.felizmusic.utils.makeTimeString
+import com.metrolist.innertube.YouTube
+import com.metrolist.innertube.models.PlaylistItem
+import com.metrolist.innertube.models.SongItem
+import com.metrolist.innertube.utils.completed
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.jtech.felizmusic.tracking.Tracker
+import com.jtech.felizmusic.tracking.TrackingActionKind
+
+@OptIn(ExperimentalMaterial3Api::class)
+@SuppressLint("MutableCollectionMutableState")
+@Composable
+fun YouTubePlaylistMenu(
+    playlist: PlaylistItem,
+    songs: List<SongItem> = emptyList(),
+    coroutineScope: CoroutineScope,
+    onDismiss: () -> Unit,
+    selectAction: () -> Unit = {},
+    canSelect: Boolean = false,
+) {
+    val context = LocalContext.current
+    val database = LocalDatabase.current
+    val downloadUtil = LocalDownloadUtil.current
+    val playerConnection = LocalPlayerConnection.current ?: return
+    val dbPlaylist by database.playlistByBrowseId(playlist.id).collectAsState(initial = null)
+
+    var showChoosePlaylistDialog by rememberSaveable { mutableStateOf(false) }
+    var showImportPlaylistDialog by rememberSaveable { mutableStateOf(false) }
+    var showErrorPlaylistAddDialog by rememberSaveable { mutableStateOf(false) }
+
+    val notAddedList by remember {
+        mutableStateOf(mutableListOf<MediaMetadata>())
+    }
+
+    AddToPlaylistDialog(
+        isVisible = showChoosePlaylistDialog,
+        onGetSong = { targetPlaylist ->
+            // Add THIS playlist's songs (filtered) to the chosen target — the fallback used
+            // targetPlaylist.id (the destination) by mistake; the source is `playlist`.
+            val allSongs = songs
+                .ifEmpty {
+                    fetchWhitelistedPlaylistSongs(playlist.id, database)
+                }.map {
+                    it.toMediaMetadata()
+                }
+            database.transaction {
+                allSongs.forEach(::insert)
+            }
+            // Remote playlist-to-playlist copy is a personal-account write; never issue it under the
+            // shared anonymous (pooled) account.
+            if (isPersonalAccountSignedIn) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    targetPlaylist.playlist.browseId?.let { targetBrowseId ->
+                        YouTube.addPlaylistToPlaylist(targetBrowseId, playlist.id)
+                    }
+                }
+            }
+            allSongs.map { it.id }
+        },
+        onDismiss = { showChoosePlaylistDialog = false },
+    )
+
+    YouTubeListItem(
+        item = playlist,
+        trailingContent = {
+            if (playlist.id != "LM" && !playlist.isEditable) {
+                IconButton(
+                    onClick = {
+                        if (dbPlaylist?.playlist == null) {
+                            database.transaction {
+                                val playlistEntity = PlaylistEntity(
+                                    name = playlist.title,
+                                    browseId = playlist.id,
+                                    thumbnailUrl = playlist.thumbnail,
+                                    isEditable = false,
+                                    remoteSongCount = playlist.songCountText?.let {
+                                        Regex("""\d+""").find(it)?.value?.toIntOrNull()
+                                    },
+                                    playEndpointParams = playlist.playEndpoint?.params,
+                                    shuffleEndpointParams = playlist.shuffleEndpoint?.params,
+                                    radioEndpointParams = playlist.radioEndpoint?.params
+                                ).toggleLike()
+                                insert(playlistEntity)
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    songs.ifEmpty {
+                                        fetchWhitelistedPlaylistSongs(playlist.id, database)
+                                    }.map { it.toMediaMetadata() }
+                                        .onEach(::insert)
+                                        .mapIndexed { index, song ->
+                                            PlaylistSongMap(
+                                                songId = song.id,
+                                                playlistId = playlistEntity.id,
+                                                position = index
+                                            )
+                                        }
+                                        .forEach(::insert)
+                                }
+                            }
+                        } else {
+                            database.transaction {
+                                // Update playlist information including thumbnail before toggling like
+                                val currentPlaylist = dbPlaylist!!.playlist
+                                update(currentPlaylist, playlist)
+                                update(currentPlaylist.toggleLike())
+                            }
+                        }
+                    }
+                ) {
+                    Icon(
+                        painter = painterResource(if (dbPlaylist?.playlist?.bookmarkedAt != null) R.drawable.favorite else R.drawable.favorite_border),
+                        tint = if (dbPlaylist?.playlist?.bookmarkedAt != null) MaterialTheme.colorScheme.error else LocalContentColor.current,
+                        contentDescription = null
+                    )
+                }
+            }
+        }
+    )
+    HorizontalDivider()
+
+    val mediaStoreDownloads by downloadUtil.getAllMediaStoreDownloads().collectAsState()
+    // The playlist may be opened without its tracks loaded (e.g. the Home long-press menu passes no
+    // songs) — fetch them so the Download row appears and downloads the whole playlist.
+    val resolvedSongs by produceState(initialValue = songs, songs, playlist.id) {
+        value = if (songs.isNotEmpty()) songs
+        else fetchWhitelistedPlaylistSongs(playlist.id, database)
+    }
+    val dbSongs by produceState(
+        initialValue = emptyList<com.jtech.felizmusic.db.entities.Song>(),
+        resolvedSongs,
+    ) {
+        value = database.getSongsByIds(resolvedSongs.map { it.id })
+    }
+    var showRemoveDownloadDialog by remember {
+        mutableStateOf(false)
+    }
+    if (showRemoveDownloadDialog) {
+        DefaultDialog(
+            onDismiss = { showRemoveDownloadDialog = false },
+            content = {
+                Text(
+                    text = stringResource(
+                        R.string.remove_download_playlist_confirm,
+                        playlist.title
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.padding(horizontal = 18.dp)
+                )
+            },
+            buttons = {
+                TextButton(
+                    onClick = { showRemoveDownloadDialog = false }
+                ) {
+                    Text(text = stringResource(android.R.string.cancel))
+                }
+                TextButton(
+                    onClick = {
+                        showRemoveDownloadDialog = false
+                        // Remove what the Download row actually downloaded — resolvedSongs, NOT the
+                        // `songs` prop (empty when opened from the Home long-press menu, which would
+                        // otherwise make Remove a silent no-op).
+                        resolvedSongs.forEach { song ->
+                            coroutineScope.launch {
+                                downloadUtil.removeDownload(song.id)
+                            }
+                        }
+                    }
+                ) {
+                    Text(text = stringResource(android.R.string.ok))
+                }
+            }
+        )
+    }
+
+    ImportPlaylistDialog(
+        isVisible = showImportPlaylistDialog,
+        onGetSong = {
+            val allSongs = songs
+                .ifEmpty {
+                    fetchWhitelistedPlaylistSongs(playlist.id, database)
+                }.map {
+                    it.toMediaMetadata()
+                }
+            database.transaction {
+                allSongs.forEach(::insert)
+            }
+            allSongs.map { it.id }
+        },
+        playlistTitle = playlist.title,
+        onDismiss = { showImportPlaylistDialog = false }
+    )
+
+    if (showErrorPlaylistAddDialog) {
+        AlreadyInPlaylistDialog(onDismiss = { showErrorPlaylistAddDialog = false }) {
+            items(notAddedList) { song ->
+                ListItem(
+                    headlineContent = { Text(text = song.title) },
+                    leadingContent = {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.size(ListThumbnailSize),
+                        ) {
+                            AsyncImage(
+                                model = song.thumbnailUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(ThumbnailCornerRadius)),
+                            )
+                        }
+                    },
+                    supportingContent = {
+                        Text(
+                            text = joinByBullet(
+                                song.artists.joinToString { it.name },
+                                makeTimeString(song.duration * 1000L),
+                            )
+                        )
+                    },
+                )
+            }
+        }
+    }
+
+    LazyColumn(
+        contentPadding = PaddingValues(
+            start = 0.dp,
+            top = 0.dp,
+            end = 0.dp,
+            bottom = 8.dp + WindowInsets.systemBars.asPaddingValues().calculateBottomPadding(),
+        ),
+    ) {
+        item {
+            NewActionGrid(
+                actions = buildList {
+                    playlist.playEndpoint?.let { playEndpoint ->
+                        add(
+                            NewAction(
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.play),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(28.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                text = stringResource(R.string.play),
+                                onClick = {
+                                    playerConnection.playQueue(YouTubeQueue(playEndpoint, preloadItem = null, database, playSource = PlaySource.playlist(playlist.id)))
+                                    onDismiss()
+                                }
+                            )
+                        )
+                    }
+                    playlist.shuffleEndpoint?.let { shuffleEndpoint ->
+                        add(
+                            NewAction(
+                                icon = {
+                                    Icon(
+                                        painter = painterResource(R.drawable.shuffle),
+                                        contentDescription = null,
+                                        modifier = Modifier.size(28.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                },
+                                text = stringResource(R.string.shuffle),
+                                onClick = {
+                                    playerConnection.playQueue(YouTubeQueue(shuffleEndpoint, preloadItem = null, database, playSource = PlaySource.playlist(playlist.id)))
+                                    onDismiss()
+                                }
+                            )
+                        )
+                    }
+                    // Corpus-native Zemer radio (/radio?kind=playlist), always available (seeds from the
+                    // playlist's member tracks; no InnerTube radioEndpoint needed). This menu only ever
+                    // opens for real YouTube/community playlists, so playlist.id is always a valid seed.
+                    add(
+                        NewAction(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(R.drawable.radio),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(28.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                            },
+                            text = stringResource(R.string.start_radio),
+                            onClick = {
+                                playerConnection.playQueue(ZemerRadioQueue("playlist", playlist.id, context, PlaySource.RADIO))
+                                onDismiss()
+                            }
+                        )
+                    )
+                },
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
+            )
+        }
+
+        item {
+            Material3MenuGroup(
+                modifier = Modifier.padding(horizontal = 4.dp),
+                items = buildList {
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.playlist_play), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.play_next)) },
+                            onClick = {
+                                coroutineScope.launch {
+                                    songs
+                                        .ifEmpty {
+                                            withContext(Dispatchers.IO) {
+                                                fetchWhitelistedPlaylistSongs(playlist.id, database)
+                                            }
+                                        }.let { songs ->
+                                            playerConnection.playNext(songs.map { it.copy(thumbnail = it.thumbnail.resize(544,544)).toMediaItem() })
+                                        }
+                                }
+                                onDismiss()
+                            },
+                        )
+                    )
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.queue_music), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.add_to_queue)) },
+                            onClick = {
+                                coroutineScope.launch {
+                                    songs
+                                        .ifEmpty {
+                                            withContext(Dispatchers.IO) {
+                                                fetchWhitelistedPlaylistSongs(playlist.id, database)
+                                            }
+                                        }.let { songs ->
+                                            playerConnection.addToQueue(songs.map { it.toMediaItem() })
+                                        }
+                                }
+                                onDismiss()
+                            },
+                        )
+                    )
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.playlist_add), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.add_to_playlist)) },
+                            onClick = {
+                                showChoosePlaylistDialog = true
+                            },
+                        )
+                    )
+                    if (resolvedSongs.isNotEmpty()) {
+                        // Aggregate by videoId off the LIVE map so progress animates during download
+                        // (online SongItems aren't Room entities yet, so a one-shot dbSongs snapshot
+                        // stays empty/stale and never showed progress). Persisted-downloaded comes from
+                        // the dbSongs snapshot for the across-restart "downloaded" state.
+                        val ids = resolvedSongs.map { it.id }
+                        val persistedDownloaded = dbSongs.filter { it.song.isDownloaded }.map { it.id }.toSet()
+                        val dlStatus = DownloadStateResolver.aggregateByIds(ids, mediaStoreDownloads, persistedDownloaded)
+                        val dlProgress = DownloadStateResolver.aggregateProgressByIds(ids, mediaStoreDownloads, persistedDownloaded)
+                        downloadMenuItem(
+                            kind = DownloadMenuLogic.collectionRow(dlStatus),
+                            progress = dlProgress,
+                            onDownload = {
+                                // Online SongItems aren't Room entities yet — persist each, then download.
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    resolvedSongs.forEach { song ->
+                                        database.transaction {
+                                            insert(song.toMediaMetadata())
+                                        }
+                                        database.song(song.id).first()?.let {
+                                            downloadUtil.downloadToMediaStore(it)
+                                        }
+                                    }
+                                }
+                            },
+                            onCancel = { resolvedSongs.forEach { downloadUtil.cancelMediaStoreDownload(it.id) } },
+                            onRetry = { resolvedSongs.forEach { downloadUtil.retryMediaStoreDownload(it.id) } },
+                            onRemove = { showRemoveDownloadDialog = true },
+                        )?.let { add(it) }
+                    }
+                    add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.share), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.share)) },
+                            onClick = {
+                                Tracker.action(TrackingActionKind.SHARE, playlist.id)
+                                context.shareText(playlist.shareLink)
+                                onDismiss()
+                            },
+                        )
+                    )
+                    if (canSelect) add(
+                        Material3MenuItemData(
+                            icon = { Icon(painterResource(R.drawable.select_all), null, Modifier.size(24.dp)) },
+                            title = { Text(stringResource(R.string.select)) },
+                            onClick = {
+                                onDismiss()
+                                selectAction()
+                            },
+                        )
+                    )
+                },
+            )
+        }
+    }
+}
+
+/**
+ * Fetches a playlist's full tracklist from InnerTube and runs it through the artist whitelist, so a
+ * menu action on an already-whitelisted playlist can NEVER pull unfiltered tracks into a local
+ * playlist, the queue, or a download. The passed-in `songs` come from surfaces that already filter,
+ * so only this empty-fallback fetch is raw and needs the gate — a whitelisted context stays
+ * whitelisted no matter which button is pressed.
+ */
+private suspend fun fetchWhitelistedPlaylistSongs(
+    playlistId: String,
+    database: MusicDatabase,
+): List<SongItem> =
+    YouTube.playlist(playlistId).completed().getOrNull()?.songs.orEmpty()
+        .filterWhitelisted(database).filterIsInstance<SongItem>()

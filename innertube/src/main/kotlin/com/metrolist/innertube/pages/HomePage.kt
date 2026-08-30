@@ -12,6 +12,7 @@ import com.metrolist.innertube.models.SectionListRenderer
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.models.YTItem
 import com.metrolist.innertube.models.oddElements
+import com.metrolist.innertube.models.filterExplicit
 
 data class HomePage(
     val chips: List<Chip>?,
@@ -86,6 +87,9 @@ data class HomePage(
                             },
                             duration = null,
                             thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+                            explicit = renderer.subtitleBadges?.any {
+                                it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                            } == true
                         )
                     }
                     renderer.isAlbum -> {
@@ -103,6 +107,9 @@ data class HomePage(
                             },
                             year = null,
                             thumbnail = renderer.thumbnailRenderer.musicThumbnailRenderer?.getThumbnailUrl() ?: return null,
+                            explicit = renderer.subtitleBadges?.find {
+                                it.musicInlineBadgeRenderer?.icon?.iconType == "MUSIC_EXPLICIT_BADGE"
+                            } != null
                         )
                     }
 
@@ -148,4 +155,12 @@ data class HomePage(
             }
         }
     }
+
+    fun filterExplicit(enabled: Boolean = true) =
+        if (enabled) {
+            copy(sections = sections.map {
+                it.copy(items = it.items.filterExplicit())
+            })
+        } else this
+
 }

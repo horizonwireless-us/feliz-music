@@ -32,8 +32,8 @@ include(":innertube")
 include(":lrclib")
 include(":simpmusic")
 
-// Cipher library (submodule)
-includeBuild("cipher") {
+// Cipher library (sibling checkout)
+includeBuild("../zemer-cipher-master") {
     dependencySubstitution {
         substitute(module("com.zemer:cipher")).using(project(":library"))
     }

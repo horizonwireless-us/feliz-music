@@ -48,14 +48,12 @@ class DeviceContentFiltersTest {
             acappellaOnly = true,
             blockVideos = true,
             blockPodcasts = true,
-            acappellaOnly = "hash",
         )
         val roundTripped = DeviceContentFilters().fromConfig(original).toConfig()
         assertEquals(original.filtersEnabled, roundTripped.filtersEnabled)
         assertEquals(original.acappellaOnly, roundTripped.acappellaOnly)
         assertEquals(original.blockVideos, roundTripped.blockVideos)
         assertEquals(original.blockPodcasts, roundTripped.blockPodcasts)
-        assertEquals(original.acappellaOnly, roundTripped.acappellaOnly)
     }
 
     @Test
@@ -68,11 +66,11 @@ class DeviceContentFiltersTest {
 
     @Test
     fun `blocking podcasts alone counts as an active content filter`() {
-        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = true)
+        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = false)
         assertFalse(ContentFilterState.hasActiveFilters)
         ContentFilterState.current = ContentFilterConfig(
             filtersEnabled = true,
-            acappellaOnly = true,
+            acappellaOnly = false,
             blockPodcasts = true,
         )
         assertTrue(ContentFilterState.hasActiveFilters)

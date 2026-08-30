@@ -181,7 +181,7 @@ class NightlyUpdatesTest {
     @Test
     fun `buildGradleUrl points at the raw file for the commit`() {
         assertEquals(
-            "https://raw.githubusercontent.com/ZemerTeam/zemer-app/abc123/app/build.gradle.kts",
+            "https://raw.githubusercontent.com/horizonwireless-us/feliz-music/abc123/android-client/app/build.gradle.kts",
             NightlyUpdates.buildGradleUrl("abc123"),
         )
     }

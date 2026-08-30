@@ -16,14 +16,18 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
 
 object UpdateChecker {
-    private const val API_URL = "https://updates.horizonwireless.us/api"
-    private const val CHANGELOG_URL = "https://updates.horizonwireless.us/changelog"
-    private const val DOWNLOAD_URL = "https://updates.horizonwireless.us/download"
+    // Public GitHub Releases is the authoritative stable distribution source. Tag-triggered
+    // `release.yml` publishes feliz-music-stable.apk + feliz-music-stable.apk.sha256 to GitHub Releases.
+    private const val LATEST_RELEASE_URL =
+        "https://api.github.com/repos/horizonwireless-us/feliz-music/releases/latest"
+    private const val RELEASES_PAGE_URL = "https://github.com/horizonwireless-us/feliz-music/releases"
+    private const val STABLE_APK_ASSET = "feliz-music-stable.apk"
     private const val APK_FILENAME = "feliz-music-update.apk"
     private const val NIGHTLY_ZIP_FILENAME = "feliz-music-nightly.zip"
 
@@ -68,7 +72,7 @@ object UpdateChecker {
         return try {
             val responseText = httpClient.get(NightlyUpdates.RUNS_URL) {
                 // GitHub's API rejects requests without a User-Agent.
-                header(HttpHeaders.UserAgent, "Zemer-Updater")
+                header(HttpHeaders.UserAgent, "Feliz-Music-Updater")
                 header(HttpHeaders.Accept, "application/vnd.github+json")
             }.bodyAsText()
 
@@ -83,7 +87,7 @@ object UpdateChecker {
                 // fall through to offering the nightly.
                 val nightlyVersion = runCatching {
                     val gradle = httpClient.get(NightlyUpdates.buildGradleUrl(run.headSha)) {
-                        header(HttpHeaders.UserAgent, "Zemer-Updater")
+                        header(HttpHeaders.UserAgent, "Feliz-Music-Updater")
                     }.bodyAsText()
                     NightlyUpdates.parseBuildVersion(gradle)
                 }.getOrNull()
@@ -115,30 +119,25 @@ object UpdateChecker {
     private suspend fun checkForStableUpdate(force: Boolean = false): UpdateResult {
         return try {
             val httpClient = HttpClient()
-            val response = httpClient.get(API_URL)
-            val responseText = response.bodyAsText()
+            val responseText = httpClient.get(LATEST_RELEASE_URL) {
+                header(HttpHeaders.UserAgent, "Feliz-Music-Updater")
+                header(HttpHeaders.Accept, "application/vnd.github+json")
+            }.bodyAsText()
 
             val json = Json.parseToJsonElement(responseText)
-            val latestVersionRaw = json.jsonObject["latestVersion"]?.jsonPrimitive?.content
+            val latestVersionRaw = json.jsonObject["tag_name"]?.jsonPrimitive?.content
                 ?: run {
                     httpClient.close()
                     return UpdateResult.Error("Invalid API response")
                 }
 
-            // Strip "v" prefix if present (API returns "v4", app version is "4")
+            // Strip "v" prefix if present (tag v4, app version is "4")
             val latestVersion = latestVersionRaw.removePrefix("v").removePrefix("V")
             val currentVersion = BuildConfig.VERSION_NAME
 
             if (force || isNewerVersion(latestVersion, currentVersion)) {
-                // Fetch changelog notes
-                val notes = try {
-                    val changelogResponse = httpClient.get(CHANGELOG_URL)
-                    val changelogText = changelogResponse.bodyAsText()
-                    val changelogJson = Json.parseToJsonElement(changelogText)
-                    changelogJson.jsonObject["notes"]?.jsonPrimitive?.content
-                } catch (e: Exception) {
-                    null
-                }
+                // GitHub Release body carries the operator-written release notes.
+                val notes = json.jsonObject["body"]?.jsonPrimitive?.content
                 httpClient.close()
                 UpdateResult.UpdateAvailable(
                     latestVersion = latestVersion,
@@ -160,14 +159,39 @@ object UpdateChecker {
         }
     }
 
+    /** Resolve the stable release's APK asset download URL from the latest GitHub Release. */
+    private suspend fun stableAssetUrl(): String? {
+        val httpClient = HttpClient()
+        return try {
+            val responseText = httpClient.get(LATEST_RELEASE_URL) {
+                header(HttpHeaders.UserAgent, "Feliz-Music-Updater")
+                header(HttpHeaders.Accept, "application/vnd.github+json")
+            }.bodyAsText()
+            val json = Json.parseToJsonElement(responseText)
+            json.jsonObject["assets"]?.jsonArray
+                ?.mapNotNull { it as? kotlinx.serialization.json.JsonObject }
+                ?.firstOrNull { asset -> asset["name"]?.jsonPrimitive?.content == STABLE_APK_ASSET }
+                ?.get("browser_download_url")?.jsonPrimitive?.content
+        } catch (e: Exception) {
+            null
+        } finally {
+            httpClient.close()
+        }
+    }
+
     fun downloadUpdate(context: Context, nightly: Boolean = false): Flow<DownloadState> = flow {
         emit(DownloadState.Downloading(0f))
 
         try {
             val httpClient = HttpClient()
 
+            // Stable downloads resolve the APK asset URL from the latest GitHub Release; nightly
+            // uses the nightly.link artifact mirror.
+            val downloadUrl = if (nightly) NightlyUpdates.DOWNLOAD_URL else stableAssetUrl()
+                ?: throw IllegalStateException("Latest release has no feliz-music-stable.apk asset")
+
             val response = httpClient
-                .prepareGet(if (nightly) NightlyUpdates.DOWNLOAD_URL else DOWNLOAD_URL)
+                .prepareGet(downloadUrl)
                 .execute()
 
             // Size of the actual body we'll read, taken after redirects. A separate HEAD
@@ -243,7 +267,7 @@ object UpdateChecker {
     }
 
     fun openDownloadPage(context: Context) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(DOWNLOAD_URL))
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(RELEASES_PAGE_URL))
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         context.startActivity(intent)
     }

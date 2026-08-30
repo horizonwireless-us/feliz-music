@@ -9,20 +9,20 @@ import java.io.File
 import java.util.zip.ZipFile
 
 /**
- * The opt-in nightly update channel: every push to `main` produces a signed release APK via the
- * release-build workflow, and nightly.link mirrors the latest artifact. Nightlies all share the
+ * The opt-in nightly update channel: every push to `main` produces a signed nightly APK via the
+ * nightly workflow, and nightly.link mirrors the latest artifact. Nightlies all share the
  * stable versionName, so "is a newer nightly available" is a commit-SHA comparison against
  * BuildConfig.COMMIT_HASH — never a version comparison. Pure logic (parsing, comparison, labels,
  * zip extraction) lives here so it is unit-testable; the network/UI flow stays in UpdateChecker.
  */
 object NightlyUpdates {
-    /** Latest successful release-build run on main; its head SHA identifies the latest nightly. */
+    /** Latest successful nightly run on main; its head SHA identifies the latest nightly. */
     const val RUNS_URL =
-        "https://api.github.com/repos/horizonwireless/feliz-music/actions/workflows/release-build.yml/runs?branch=main&status=success&per_page=1"
+        "https://api.github.com/repos/horizonwireless-us/feliz-music/actions/workflows/nightly.yml/runs?branch=main&status=success&per_page=1"
 
-    /** nightly.link mirror of the latest release-apk artifact — a zip wrapping the APK. */
+    /** nightly.link mirror of the latest nightly artifact — a zip wrapping the APK. */
     const val DOWNLOAD_URL =
-        "https://nightly.link/horizonwireless/feliz-music/workflows/release-build/main/release-apk.zip"
+        "https://nightly.link/horizonwireless-us/feliz-music/workflows/nightly/main/feliz-music-nightly.zip"
 
     data class NightlyRun(
         val headSha: String,

@@ -680,17 +680,19 @@ class ZemerResultMapperTest {
     }
 
     @Test
-    fun `radio female-reason overrides follow the live content-filter config`() {
-        BlockedIdsCache.updateAll(mapOf("femaleTrack" to "female"))
+    fun `radio blocked-id overrides follow the live content-filter config`() {
+        BlockedIdsCache.updateAll(mapOf("blockedTrack" to "global"))
         val resp = ZemerRadioResponse(
-            tracks = listOf(ZemerTrack("ok", "OK", "A"), ZemerTrack("femaleTrack", "F", "B")),
+            tracks = listOf(ZemerTrack("ok", "OK", "A"), ZemerTrack("blockedTrack", "Blocked", "B")),
         )
 
+        // Filters enabled -> global overrides dropped regardless of onlyAcappella.
         ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = false)
         assertEquals(listOf("ok"), resp.toSongItems().map { it.id })
 
-        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = true)
-        assertEquals(listOf("ok", "femaleTrack"), resp.toSongItems().map { it.id })
+        // Filters disabled -> overrides inert.
+        ContentFilterState.current = ContentFilterConfig(filtersEnabled = false)
+        assertEquals(listOf("ok", "blockedTrack"), resp.toSongItems().map { it.id })
     }
 
     @Test

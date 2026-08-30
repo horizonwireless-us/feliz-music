@@ -114,7 +114,7 @@ object ZemerContentClient {
     suspend fun blockedIds(): Map<String, String> {
         val dto = json.decodeFromString(ContentBlockedDto.serializer(), getText("/blockedContentIds", SMALL_TIMEOUT_MS))
         val map = buildMap {
-            (dto.global + dto.female).forEach { id -> id.trim().takeIf { it.isNotEmpty() }?.let { put(it, REASON_GLOBAL) } }
+            (dto.global + dto.female).forEach { id: String -> id.trim().takeIf { it.isNotEmpty() }?.let { put(it, BlockedIdsCache.REASON_GLOBAL) } }
         }
         Timber.d("ZemerContentClient: /blockedContentIds %d overrides (all global)", map.size)
         return map

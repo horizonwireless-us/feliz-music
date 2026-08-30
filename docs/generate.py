@@ -364,7 +364,6 @@ def _workflow_section():
 
 
 def _native_section():
-    subs = re.findall(r'\[submodule\s+"([^"]+)"\]\s*\n\s*path\s*=\s*(\S+)\s*\n\s*url\s*=\s*(\S+)', _text(".gitmodules"))
     cmake = _text("app/src/main/cpp/CMakeLists.txt")
     cmin = (re.search(r'cmake_minimum_required\(VERSION\s+([\d.]+)\)', cmake) or [None, "?"])[1]
     proj = (re.search(r'project\(([^)\s]+)', cmake) or [None, "?"])[1]
@@ -373,12 +372,12 @@ def _native_section():
     cver = (re.search(r'cmake\s*\{[^}]*?version\s*=\s*"([^"]+)"', appg, re.DOTALL) or [None, "?"])[1]
     ndk = (re.search(r'ndkVersion\s*=\s*"([^"]+)"', appg) or [None, "?"])[1]
     cpp = (re.search(r'cppFlags\s*\+?=\s*"([^"]+)"', appg) or [None, "?"])[1]
-    sub_facts = "; ".join(f"submodule `{n}` → `{u}` (path `{p}`)" for n, p, u in subs)
+    bento_license = "present" if os.path.exists(os.path.join(ROOT, "app/src/main/cpp/bento4/LICENSE.bento4.md")) else "missing"
     return "\n".join([
         "| Path | Hard facts |", "| --- | --- |",
-        f"| `.gitmodules` | {_cell(sub_facts)}. |",
+        f"| Native source layout | No git submodules. Bento4 is vendored source under `app/src/main/cpp/bento4` (license notice `LICENSE.bento4.md`: {bento_license}); the cipher library is a sibling Gradle project, not a submodule. |",
         f"| `app/src/main/cpp/CMakeLists.txt` | cmake_minimum_required `{cmin}`; project `{proj}`; add_subdirectory {', '.join('`' + s + '`' for s in subdir)}. |",
-        f"| `app/build.gradle.kts` (native) | CMake version `{cver}`; NDK `{ndk}`; cppFlags `{_cell(cpp)}` (used when `USE_PREBUILT_NATIVE` != `true`). |",
+        f"| `app/build.gradle.kts` (native) | CMake version `{cver}`; NDK `{ndk}`; cppFlags `{_cell(cpp)}`. |",
     ])
 
 

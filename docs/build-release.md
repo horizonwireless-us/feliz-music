@@ -6,7 +6,7 @@
 
 | File | Hard facts visible in file |
 | --- | --- |
-| `settings.gradle.kts` | Root project `Zemer`; includes `:app`, `:innertube`, `:lrclib`, `:simpmusic`; composite build `cipher` substitutes `com.zemer:cipher` with `:library`; repositories: mavenLocal, Google, Gradle Plugin Portal, Maven Central, JitPack. |
+| `settings.gradle.kts` | Root project `Zemer`; includes `:app`, `:innertube`, `:lrclib`, `:simpmusic`; composite build `../NewPipeExtractor` substitutes `com.zemer:cipher` with `:library`; repositories: mavenLocal, Google, Gradle Plugin Portal, Maven Central, JitPack. |
 | `build.gradle.kts` | Root plugins (apply false): `hilt`, `kotlin.ksp`, `google.gms.google.services`, `firebase.crashlytics`, `rikka.tools.refine`; buildscript classpath: `libs.gradle`, `kotlin("gradle-plugin", libs.versions.kotlin.get())`, `libs.google.services`; registers task(s): `clean`; subprojects emit Compose compiler reports/metrics when `enableComposeCompilerReports=true`. |
 | `gradle.properties` | `org.gradle.jvmargs=-Xmx4096M -Dkotlin.daemon.jvm.options\="-Xmx4096M" -XX:+UseParallelGC`; `android.useAndroidX=true`; `android.enableJetifier=false`; `org.gradle.unsafe.configuration-cache=true`; `android.nonTransitiveRClass=false`; `org.gradle.parallel=true`; `org.gradle.daemon=true`; `org.gradle.configureondemand=false`; `android.suppressUnsupportedOptionWarnings=android.suppressUnsupportedOptionWarnings,android.nonFinalResIds`; `systemProp.org.gradle.internal.http.connectionTimeout=180000`; `systemProp.org.gradle.internal.http.socketTimeout=180000`; `org.gradle.caching=false`; `ksp.incremental=false`; `ksp.incremental.intermodule=false`. |
 | `gradle/libs.versions.toml` | Central version catalog for plugins and dependencies; see `reference/non-kotlin-files.md`. |
@@ -18,35 +18,35 @@
 | Workflow fact | Value |
 | --- | --- |
 | Triggers | `workflow_dispatch`, `push`, `pull_request` |
-| Path filters (`paths-ignore`) | `docs/**`, `tests/**`, `**.md`, `scripts/**`, `.github/**`, `.idea/**`, `.vscode/**`, `.gitignore`, `.gitattributes`, `.editorconfig`, `LICENSE`, `cipher` |
-| Environment | `USE_PREBUILT_NATIVE: true` |
+| Path filters (`paths-ignore`) | `docs/**`, `tests/**`, `**.md`, `scripts/**`, `.github/**`, `.idea/**`, `.vscode/**`, `.gitignore`, `.gitattributes`, `.editorconfig`, `LICENSE` |
+| Environment | none |
 | Job | `assemble-release` on `ubuntu-latest` |
 | Permissions | `contents: write` |
 
 | Step | Action / command |
 | --- | --- |
-| Checkout repository | `actions/checkout@v4` (submodules=`recursive`) |
+| Checkout repository | `actions/checkout@v4` |
+| Check out pinned cipher | run: `bash scripts/checkout-cipher.sh` |
 | Set up JDK 21 | `actions/setup-java@v4` (distribution=`temurin`, java-version=`21`) |
 | Setup Gradle | `gradle/actions/setup-gradle@v4` |
 | Set up Android SDK | `android-actions/setup-android@v3` |
-| Cache native libs | `actions/cache@v4` (path=`app/src/main/jniLibs`, key=`bento4-libs-v1.0.1`) |
-| Download prebuilt native libs | run: `gh release download v1.0.1 --repo ZemerTeam/zemer-bento4 --pattern 'bento4-libs.zip'` |
+| Install pinned native build components | run: `yes \| sdkmanager --licenses >/dev/null 2>&1 \|\| true` |
 | Configure Android SDK path | run: `echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties` |
 | Configure Firebase | run: `echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" \| base64 -d > app/google-services.json` |
 | Configure release keystore | run: `mkdir -p app/keystore` |
-| Assemble signed release | run: `./gradlew assembleRelease` |
-| Check 16 KB page-size alignment | run: `bash scripts/check-16kb-alignment.sh app/build/outputs/apk/release/app-release.apk` |
-| Upload Crashlytics native symbols | run: `./gradlew :app:uploadCrashlyticsSymbolFileRelease` |
-| Upload APK artifact | `actions/upload-artifact@v4` (name=`release-apk`, path=`app/build/outputs/apk/release/*.apk`) |
+| Assemble signed release | run: `./gradlew :app:assembleStableRelease -PfelizCipherPath=.deps/feliz-cipher -PfirebaseProjec` |
+| Check 16 KB page-size alignment | run: `bash scripts/check-16kb-alignment.sh app/build/outputs/apk/stable/release/*.apk` |
+| Upload Crashlytics native symbols | run: `./gradlew :app:uploadCrashlyticsSymbolFileStableRelease -PfelizCipherPath=.deps/feliz-ciph` |
+| Upload APK artifact | `actions/upload-artifact@v4` (name=`release-apk`, path=`app/build/outputs/apk/stable/release/*.apk`) |
 | Send Telegram notification | run: `if [ "$JOB_STATUS" == "success" ]; then` |
 
 ## Native code and submodules
 
 | Path | Hard facts |
 | --- | --- |
-| `.gitmodules` | submodule `app/src/main/cpp/bento4` → `https://github.com/ZemerTeam/zemer-bento4.git` (path `app/src/main/cpp/bento4`); submodule `cipher` → `https://github.com/ZemerTeam/zemer-cipher.git` (path `cipher`). |
+| Native source layout | No git submodules. Bento4 is vendored source under `app/src/main/cpp/bento4` (license notice `LICENSE.bento4.md`: present); the cipher library is a sibling Gradle project, not a submodule. |
 | `app/src/main/cpp/CMakeLists.txt` | cmake_minimum_required `3.18`; project `coverart-wrapper`; add_subdirectory `bento4`. |
-| `app/build.gradle.kts` (native) | CMake version `3.22.1`; NDK `27.0.12077973`; cppFlags `-std=c++17` (used when `USE_PREBUILT_NATIVE` != `true`). |
+| `app/build.gradle.kts` (native) | CMake version `3.22.1`; NDK `27.0.12077973`; cppFlags `-std=c++17`. |
 
 ## Auxiliary JVM modules
 

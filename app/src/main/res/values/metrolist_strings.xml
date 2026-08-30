@@ -24,7 +24,7 @@
     <string name="unknown_artist">Unknown artist</string>
     <string name="trending">Trending</string>
     <string name="latest_releases">Latest Releases</string>
-    <string name="zemer_playlists">Zemer Playlists</string>
+    <string name="zemer_playlists">Feliz Playlists</string>
     <plurals name="n_hour">
         <item quantity="one">1 hour</item>
         <item quantity="other">%d hours</item>
@@ -268,7 +268,7 @@
     <string name="stream_sources_description">Enable/Disable streaming clients</string>
     <!-- Relay playback mode (for kosher-filtered devices) -->
     <string name="stream_relay_group">Filtered devices</string>
-    <string name="stream_relay_title">Stream through Zemer</string>
+    <string name="stream_relay_title">Stream through Feliz Music</string>
     <string name="stream_relay_desc">For devices whose content filter blocks YouTube.</string>
     <string name="login_filter_blocks_playback">I have a filter</string>
     <string name="relay_error_unavailable">This track is not available.</string>
@@ -304,7 +304,7 @@
     <!-- Onboarding privacy policy (supersedes onboarding_privacy_body: discloses Crashlytics) -->
     <!-- Onboarding privacy policy (supersedes onboarding_privacy_body_crash_reporting: additionally
          discloses the anonymous usage telemetry, per the tracking spec §7 — see docs/tracking/README.md) -->
-    <string name="onboarding_privacy_body_telemetry">Preferences and logins stay on your device, and nothing is ever sold or shared for marketing.\n\nTo improve search and build Zemer\'s own recommendations, the app sends anonymous usage data to Zemer\'s server: a random install identifier, the app version, search terms, plays (which track, how many seconds were listened, and which screen started it), search-result taps, and library actions such as favorites, downloads, playlist additions and shares, with their timestamps. This data is not linked to any account or person — no names, emails, contacts, location, or advertising identifiers are collected, and the server does not store IP addresses.\n\nTo keep the app working, automatic crash and error reports are sent to Google Firebase Crashlytics. These reports contain device information (such as model and Android version) and recent technical logs from the app, and are used only to diagnose and fix problems.</string>
+    <string name="onboarding_privacy_body_telemetry">Preferences and logins stay on your device, and nothing is ever sold or shared for marketing.\n\nTo improve search and build Feliz Music\'s own recommendations, the app sends anonymous usage data to Feliz Music\'s server: a random install identifier, the app version, search terms, plays (which track, how many seconds were listened, and which screen started it), search-result taps, and library actions such as favorites, downloads, playlist additions and shares, with their timestamps. This data is not linked to any account or person — no names, emails, contacts, location, or advertising identifiers are collected, and the server does not store IP addresses.\n\nTo keep the app working, automatic crash and error reports are sent to Google Firebase Crashlytics. These reports contain device information (such as model and Android version) and recent technical logs from the app, and are used only to diagnose and fix problems.</string>
 
     <!-- Logout confirmation -->
     <string name="logout_keep_library_title">Keep library data?</string>
@@ -413,7 +413,7 @@
     <string name="settings_desc_storage">Cache management</string>
     <string name="settings_desc_backup">Backup your data</string>
     <string name="settings_desc_updater">Check for app updates</string>
-    <string name="settings_desc_about">About Zemer</string>
+    <string name="settings_desc_about">About Feliz Music</string>
     <string name="settings_desc_android_auto">Customize browsing &amp; quick-add</string>
     <string name="recommendations">Recommendations</string>
 
@@ -438,7 +438,7 @@
     <string name="clear_logs">Clear logs</string>
     <string name="no_logs">No logs</string>
     <string name="export_logs">Export logs</string>
-    <string name="log_export_subject">Zemer logs</string>
+    <string name="log_export_subject">Feliz Music logs</string>
     <string name="logs_exported">Logs exported to %s</string>
     <string name="logs_export_failed">Failed to export logs</string>
     <string name="log_export_range">Time range</string>
@@ -498,13 +498,13 @@
     <string name="recognize_music_listening">Listening…</string>
     <string name="recognize_music_listening_hint">Make sure the music is playing clearly</string>
     <string name="recognize_music_identifying">Identifying…</string>
-    <string name="recognize_music_searching">Finding it on Zemer…</string>
+    <string name="recognize_music_searching">Finding it on Feliz Music…</string>
     <string name="recognize_music_no_match">No match found</string>
     <string name="recognize_music_no_match_hint">We couldn\'t find this song from a permitted artist. Try again with clearer audio.</string>
     <string name="recognize_music_error">Recognition failed</string>
     <string name="recognize_music_error_hint">Something went wrong. Please try again.</string>
     <string name="recognize_music_permission_title">Microphone needed</string>
-    <string name="recognize_music_permission_rationale">Zemer needs microphone access to listen and identify the song playing around you.</string>
+    <string name="recognize_music_permission_rationale">Feliz Music needs microphone access to listen and identify the song playing around you.</string>
     <string name="recognize_music_play">Play</string>
     <string name="recognize_music_try_again">Try again</string>
     <string name="recognize_music_close">Close</string>
@@ -536,9 +536,9 @@
     <string name="enable_casting_description">Show a cast button to play to Chromecast and FCast devices on your network.</string>
     <string name="stop_casting">Stop casting</string>
     <string name="offline_search">Search backup</string>
-    <string name="settings_desc_offline_search">Zemer server outage protection</string>
+    <string name="settings_desc_offline_search">Feliz Music server outage protection</string>
     <string name="offline_search_enable">Enable search backup</string>
-    <string name="offline_search_enable_desc">Download the catalog so search and browse keep working during a short Zemer server outage. Updates automatically every day.</string>
+    <string name="offline_search_enable_desc">Download the catalog so search and browse keep working during a short Feliz Music server outage. Updates automatically every day.</string>
     <string name="offline_search_download_now">Download now</string>
     <string name="offline_search_updating">Updating…</string>
     <string name="offline_search_size">%1$s downloaded</string>
@@ -546,13 +546,13 @@
     <string name="offline_search_never">Never</string>
     <string name="offline_search_last_error">Last error: %1$s</string>
     <string name="offline_search_promo_title">Keep search working offline</string>
-    <string name="offline_search_promo_body">Download a backup of the catalog once and search keeps working even when the Zemer server is unreachable</string>
+    <string name="offline_search_promo_body">Download a backup of the catalog once and search keeps working even when the Feliz Music server is unreachable</string>
     <string name="offline_search_promo_action">Set up</string>
     <string name="offline_search_promo_dismiss">Not now</string>
-    <!-- Zemer Stations (synchronized broadcast radio) -->
+    <!-- Feliz Stations (synchronized broadcast radio) -->
     <string name="station_live_badge">LIVE</string>
     <string name="onboarding_backup_title">Search backup</string>
-    <string name="onboarding_backup_question">Should search keep working even when the Zemer server is unreachable?</string>
+    <string name="onboarding_backup_question">Should search keep working even when the Feliz Music server is unreachable?</string>
     <string name="onboarding_backup_enable">Download a backup</string>
     <string name="onboarding_backup_enable_desc">Downloads the catalog now and keeps it updated automatically every day</string>
     <string name="onboarding_backup_skip">Not now</string>
@@ -611,7 +611,7 @@
     <string name="about_jtechforums">JTechForums</string>
     <string name="about_website">Website</string>
     <string name="about_avatar_cd">%1$s avatar</string>
-    <string name="about_zemer_team">ZemerTeam</string>
+    <string name="about_zemer_team">Feliz Music</string>
     <string name="about_links">Links &amp; Community</string>
     <string name="about_releases">Releases thread</string>
     <string name="about_discussion">Discussion &amp; feedback</string>
@@ -628,7 +628,7 @@
     <string name="cd_pure_black_mode">Pure black mode</string>
     <string name="palette_dynamic">Dynamic</string>
     <string name="palette_system">System</string>
-    <string name="palette_brand">Zemer</string>
+    <string name="palette_brand">Feliz Music</string>
     <string name="palette_crimson">Crimson</string>
     <string name="palette_rose">Rose</string>
     <string name="palette_purple">Purple</string>
@@ -681,7 +681,7 @@
         <string name="new_videos">New Videos</string>
         <string name="new_video_songs">New video songs</string>
         <string name="top_video_artists">Top Video Artists</string>
-        <string name="zemer_radio_stations">Zemer Radio Stations</string>
+        <string name="zemer_radio_stations">Feliz Radio Stations</string>
         <string name="mark_as_played">Mark as played</string>
         <string name="mark_as_unplayed">Mark as unplayed</string>
         <string name="filter_episodes">Episodes</string>

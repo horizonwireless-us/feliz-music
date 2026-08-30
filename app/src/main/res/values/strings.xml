@@ -3,7 +3,7 @@
 <!-- Upstream InnerTune strings -->
 <!-- Do not add new features here -->
 <!-- Try to re-use strings here, but be careful on its usage e.g. verb vs noun -->
-<!-- "InnerTune" is replaced with "Zemer" -->
+<!-- "InnerTune" is replaced with "Feliz Music" -->
 <!-- Translators: Do not modify this file for translations, use InnerTune's Weblate instead. -->
 
 <resources xmlns:tools="http://schemas.android.com/tools">
@@ -41,7 +41,7 @@
 
     <!-- Search -->
     <string name="search">Search</string>
-    <string name="search_yt_music">Search Zemer...</string>
+    <string name="search_yt_music">Search Feliz Music...</string>
     <string name="search_artists">Search artists…</string>
     <string name="filter_library">Library</string>
     <string name="filter_liked">Liked</string>
@@ -106,7 +106,7 @@
     <string name="view_album">View album</string>
     <string name="refetch">Refetch</string>
     <string name="share">Share</string>
-    <string name="default_link_handler">Open links with Zemer by default</string>
+    <string name="default_link_handler">Open links with Feliz Music by default</string>
     <string name="links">Links</string>
     <string name="delete">Delete</string>
     <string name="remove_from_history">Remove from history</string>
@@ -290,9 +290,9 @@
     <string name="custom_download_path">Custom download path</string>
     <string name="custom_download_path_summary">Current: %1$s</string>
     <string name="video_download_path">Video download location</string>
-    <string name="video_download_path_summary">Videos are saved to Movies/Zemer</string>
+    <string name="video_download_path_summary">Videos are saved to Movies/Feliz Music</string>
     <string name="reset_download_path">Reset download path</string>
-    <string name="reset_download_path_summary">Go back to the default Music/Zemer folder</string>
+    <string name="reset_download_path_summary">Go back to the default Music/Feliz Music folder</string>
     <string name="clear_all_downloads">Clear all downloads</string>
     <string name="clear_image_cache">Clear image cache</string>
     <string name="clear_song_cache">Clear song cache</string>
@@ -357,7 +357,7 @@
     <string name="onboarding_view_privacy">View Privacy</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_tos_title">Terms of Service</string>
-    <string name="onboarding_tos_body">By using Zemer you agree:
+    <string name="onboarding_tos_body">By using Feliz Music you agree:
 • You won’t hold the developers liable for any damages or claims.
 • You’re responsible for following copyright laws for anything you play.
 • We only point to third-party content and do not host media.
@@ -432,7 +432,7 @@
     <string name="chart_rank_only">Number %1$d</string>
 
     <!-- Widget -->
-    <string name="widget_name">Zemer Music</string>
+    <string name="widget_name">Feliz Music</string>
     <string name="widget_description">Control your music playback</string>
     <string name="widget_tap_to_open">Tap to open</string>
 </resources>

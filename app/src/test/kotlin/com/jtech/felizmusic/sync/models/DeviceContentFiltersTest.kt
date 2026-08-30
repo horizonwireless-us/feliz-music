@@ -45,17 +45,17 @@ class DeviceContentFiltersTest {
     fun `full round-trip preserves blockPodcasts alongside the other filters`() {
         val original = ContentFilterConfig(
             filtersEnabled = true,
-            allowFemaleSingers = true,
+            acappellaOnly = true,
             blockVideos = true,
             blockPodcasts = true,
-            femalePasscodeHash = "hash",
+            acappellaOnly = "hash",
         )
         val roundTripped = DeviceContentFilters().fromConfig(original).toConfig()
         assertEquals(original.filtersEnabled, roundTripped.filtersEnabled)
-        assertEquals(original.allowFemaleSingers, roundTripped.allowFemaleSingers)
+        assertEquals(original.acappellaOnly, roundTripped.acappellaOnly)
         assertEquals(original.blockVideos, roundTripped.blockVideos)
         assertEquals(original.blockPodcasts, roundTripped.blockPodcasts)
-        assertEquals(original.femalePasscodeHash, roundTripped.femalePasscodeHash)
+        assertEquals(original.acappellaOnly, roundTripped.acappellaOnly)
     }
 
     @Test
@@ -68,11 +68,11 @@ class DeviceContentFiltersTest {
 
     @Test
     fun `blocking podcasts alone counts as an active content filter`() {
-        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, allowFemaleSingers = true)
+        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = true)
         assertFalse(ContentFilterState.hasActiveFilters)
         ContentFilterState.current = ContentFilterConfig(
             filtersEnabled = true,
-            allowFemaleSingers = true,
+            acappellaOnly = true,
             blockPodcasts = true,
         )
         assertTrue(ContentFilterState.hasActiveFilters)

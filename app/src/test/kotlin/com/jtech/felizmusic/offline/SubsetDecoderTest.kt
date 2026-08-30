@@ -21,9 +21,9 @@ class SubsetDecoderTest {
         )
         assertEquals("UC-2KKdSj6zy8SZ8jFngR91g", a[0].id)
         assertEquals("נתנאל זלבסקי", a[0].name)
-        assertFalse(a[0].isFemale); assertFalse(a[0].isChasid); assertFalse(a[0].isKidZone)
+        assertFalse(a[0].isAcappella); assertFalse(a[0].isChasid); assertFalse(a[0].isKidZone)
         // flags = 7 = 1|2|4
-        assertTrue(a[1].isFemale); assertTrue(a[1].isChasid); assertTrue(a[1].isKidZone)
+        assertTrue(a[1].isAcappella); assertTrue(a[1].isChasid); assertTrue(a[1].isKidZone)
     }
 
     @Test
@@ -107,10 +107,10 @@ class SubsetDecoderTest {
         assertEquals("UCBZlDcGaHknNIsPlmENwgdA", c[0].id)
         assertEquals("Aaron Benedict", c[0].name)
         // flags = 4 = verified only
-        assertFalse(c[0].isFemale); assertFalse(c[0].isKidZone); assertTrue(c[0].isVerified)
+        assertFalse(c[0].isAcappella); assertFalse(c[0].isKidZone); assertTrue(c[0].isVerified)
         assertEquals(1, c[0].showCount); assertEquals(79, c[0].episodeCount)
         // flags = 7 = 1|2|4
-        assertTrue(c[1].isFemale); assertTrue(c[1].isKidZone); assertTrue(c[1].isVerified)
+        assertTrue(c[1].isAcappella); assertTrue(c[1].isKidZone); assertTrue(c[1].isVerified)
     }
 
     @Test

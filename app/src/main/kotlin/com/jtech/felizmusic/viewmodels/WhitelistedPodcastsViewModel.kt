@@ -8,7 +8,6 @@ import com.jtech.felizmusic.db.entities.PodcastWhitelistEntity
 import com.jtech.felizmusic.search.ZemerSearchRepository
 import com.jtech.felizmusic.utils.NewEpisodesFeed
 import com.jtech.felizmusic.utils.ContentFilterState
-import com.jtech.felizmusic.utils.allowsFemale
 import com.jtech.felizmusic.utils.PodcastLibrarySources
 import com.jtech.felizmusic.utils.SyncUtils
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,11 +51,8 @@ constructor(
             ContentFilterState.state,
         ) { podcasts: List<PodcastWhitelistEntity>, query, filters ->
             podcasts
-                // Female gate: hide a wholly-female host channel when female filtering is on, matching the
-                // server, the offline snapshot, and the artist browse. (kidZone is always off for podcast
-                // surfaces.) This browse grid reads the mirror whitelist directly, so it is the one podcast
-                // discovery surface with no server filter in front of it — the gate must run here.
-                .filter { !it.isFemale || filters.allowsFemale() }
+                // Podcasts ignore onlyAcappella; isFemale was removed. The only gate is the existing
+                // podcast-specific block, applied by the caller.
                 .filter { query.isBlank() || it.name.contains(query, ignoreCase = true) }
         }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 

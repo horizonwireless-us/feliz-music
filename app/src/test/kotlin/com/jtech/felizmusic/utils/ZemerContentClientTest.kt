@@ -40,11 +40,11 @@ class ZemerContentClientTest {
     fun `whitelist doc keeps absent booleans null (both mappings depend on this), present ones exact`() {
         val doc = json.decodeFromString(
             ContentWhitelistDoc.serializer(),
-            """{"id":"UC1","name":"A","isAmerican":true,"isFemale":false}""",
+            """{"id":"UC1","name":"A","isAmerican":true,"isAcappella":false}""",
         )
         assertEquals("UC1", doc.id)
         assertEquals(true, doc.isAmerican)   // present true
-        assertEquals(false, doc.isFemale)    // present false
+        assertEquals(false, doc.isAcappella)    // present false
         assertNull(doc.isKids)               // absent -> null, NOT false (HomeArtistProfile needs the distinction)
         assertNull(doc.isChasid)             // absent -> null
         assertNull(doc.isGenZ)               // absent -> null

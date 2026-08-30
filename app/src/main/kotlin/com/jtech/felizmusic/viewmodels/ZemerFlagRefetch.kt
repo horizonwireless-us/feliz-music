@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 internal fun ViewModel.reloadOnContentFlagChange(onChange: suspend () -> Unit) {
     viewModelScope.launch(Dispatchers.IO) {
         ContentFilterState.state
-            .map { it.allowFemaleSingers to it.blockVideos }
+            .map { it.acappellaOnly to it.blockVideos }
             .distinctUntilChanged()
             .drop(1)
             .collect { onChange() }

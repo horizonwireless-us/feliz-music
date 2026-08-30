@@ -13,7 +13,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import com.jtech.felizmusic.viewmodels.OnboardingViewModel
 import com.jtech.felizmusic.ui.screens.onboarding.OnboardingSearchBackupScreen
 import com.jtech.felizmusic.constants.EnableContentFiltersKey
-import com.jtech.felizmusic.constants.AllowFemaleSingersKey
+import com.jtech.felizmusic.constants.AcappellaOnlyKey
 import com.jtech.felizmusic.constants.BlockVideosKey
 import com.jtech.felizmusic.ui.screens.onboarding.WelcomeScreen
 import com.jtech.felizmusic.ui.screens.onboarding.DensityScreen
@@ -40,7 +40,7 @@ fun OnboardingFlow(
     val contentFiltersAlreadySet = remember {
         context.getSharedPreferences("metrolist_settings", Context.MODE_PRIVATE).let { prefs ->
             prefs.contains(EnableContentFiltersKey.name) &&
-            prefs.contains(AllowFemaleSingersKey.name) &&
+            prefs.contains(AcappellaOnlyKey.name) &&
             prefs.contains(BlockVideosKey.name)
         }
     }

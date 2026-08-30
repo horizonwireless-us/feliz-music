@@ -22,10 +22,10 @@ class PodcastLibrarySourcesTest {
     }
 
     private fun channel(id: String, female: Boolean = false) =
-        PodcastWhitelistEntity(channelId = id, name = id, isFemale = female)
+        PodcastWhitelistEntity(channelId = id, name = id, isAcappella = female)
 
     /** Filters ON, female not allowed — the strictest state (the one the leak showed under). */
-    private val strict = ContentFilterConfig(filtersEnabled = true, allowFemaleSingers = false)
+    private val strict = ContentFilterConfig(filtersEnabled = true, acappellaOnly = false)
 
     @Test
     fun `an approved host channel passes`() {
@@ -63,15 +63,15 @@ class PodcastLibrarySourcesTest {
     @Test
     fun `a wholly-female approved channel passes when female singers are allowed`() {
         seed(channel("UCfemale", female = true))
-        val allowFemale = ContentFilterConfig(filtersEnabled = true, allowFemaleSingers = true)
-        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCfemale", allowFemale))
-        assertTrue(PodcastLibrarySources.podcastChannelAllowed("UCfemale", allowFemale))
+        val onlyAcappella = ContentFilterConfig(filtersEnabled = true, acappellaOnly = true)
+        assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCfemale", onlyAcappella))
+        assertTrue(PodcastLibrarySources.podcastChannelAllowed("UCfemale", onlyAcappella))
     }
 
     @Test
     fun `a wholly-female approved channel passes when filtering is off entirely`() {
         seed(channel("UCfemale", female = true))
-        val filtersOff = ContentFilterConfig(filtersEnabled = false, allowFemaleSingers = false)
+        val filtersOff = ContentFilterConfig(filtersEnabled = false, acappellaOnly = false)
         assertTrue(PodcastLibrarySources.subscribedPodcastAllowed("UCfemale", filtersOff))
         assertTrue(PodcastLibrarySources.podcastChannelAllowed("UCfemale", filtersOff))
     }

@@ -5,26 +5,29 @@ import com.google.firebase.firestore.ServerTimestamp
 import java.util.Date
 
 /**
- * Content filter configuration for a device
+ * Content filter configuration for a device. Legacy `allowFemaleSingers` /
+ * `femalePasscodeHash` fields received from old Firebase documents are
+ * ignored; only `acappellaOnly` is read and written.
  */
 @IgnoreExtraProperties
 data class DeviceContentFilters(
     val enableContentFilters: Boolean = true,
-    val allowFemaleSingers: Boolean = false,
+    val acappellaOnly: Boolean = false,
     val blockVideos: Boolean = false,
     // Nullable so an UNSET podcast field (a doc written before podcast-blocking shipped, or by an authority
     // who never touched it) is distinguishable from an explicit false. When unset, toConfig() derives it
     // from blockVideos — so a sync-account video-blocker is locked out of podcasts too. Once a client
     // writes an explicit value it is respected.
-    val blockPodcasts: Boolean? = null,
-    val femalePasscodeHash: String? = null
+    val blockPodcasts: Boolean? = null
 ) {
     companion object {
         const val FIELD_ENABLE_CONTENT_FILTERS = "enableContentFilters"
-        const val FIELD_ALLOW_FEMALE_SINGERS = "allowFemaleSingers"
+        const val FIELD_ACAPPELLA_ONLY = "acappellaOnly"
         const val FIELD_BLOCK_VIDEOS = "blockVideos"
         const val FIELD_BLOCK_PODCASTS = "blockPodcasts"
-        const val FIELD_FEMALE_PASSCODE_HASH = "femalePasscodeHash"
+        // Legacy fields, kept as constants only so readers/writers never emit them again.
+        const val FIELD_LEGACY_ALLOW_FEMALE_SINGERS = "allowFemaleSingers"
+        const val FIELD_LEGACY_FEMALE_PASSCODE_HASH = "femalePasscodeHash"
     }
 
     /**
@@ -33,10 +36,9 @@ data class DeviceContentFilters(
     fun fromConfig(config: com.jtech.felizmusic.utils.ContentFilterConfig): DeviceContentFilters {
         return DeviceContentFilters(
             enableContentFilters = config.filtersEnabled,
-            allowFemaleSingers = config.allowFemaleSingers,
+            acappellaOnly = config.acappellaOnly,
             blockVideos = config.blockVideos,
-            blockPodcasts = config.blockPodcasts,
-            femalePasscodeHash = config.femalePasscodeHash
+            blockPodcasts = config.blockPodcasts
         )
     }
 
@@ -47,10 +49,9 @@ data class DeviceContentFilters(
     fun toConfig(): com.jtech.felizmusic.utils.ContentFilterConfig {
         return com.jtech.felizmusic.utils.ContentFilterConfig(
             filtersEnabled = enableContentFilters,
-            allowFemaleSingers = allowFemaleSingers,
+            acappellaOnly = acappellaOnly,
             blockVideos = blockVideos,
-            blockPodcasts = blockPodcasts ?: blockVideos,
-            femalePasscodeHash = femalePasscodeHash
+            blockPodcasts = blockPodcasts ?: blockVideos
         )
     }
 }

@@ -13,40 +13,40 @@ import org.junit.Test
 class RankedContentGateTest {
 
     private val flags = mapOf(
-        "UCfem" to Flags(isFemale = true, isKids = false),
-        "UCkid" to Flags(isFemale = false, isKids = true),
-        "UCok" to Flags(isFemale = false, isKids = false),
+        "UCfem" to Flags(isAcappella = true, isKids = false),
+        "UCkid" to Flags(isAcappella = false, isKids = true),
+        "UCok" to Flags(isAcappella = false, isKids = false),
     )
-    private fun gate(ids: List<String>, allowFemale: Boolean, israeli: Set<String> = emptySet()) =
-        RankedContentGate.isBlockedRanked(ids, allowFemale, flags::get, isIsraeli = { it in israeli })
+    private fun gate(ids: List<String>, onlyAcappella: Boolean, israeli: Set<String> = emptySet()) =
+        RankedContentGate.isBlockedRanked(ids, onlyAcappella, flags::get, isIsraeli = { it in israeli })
 
     @Test
     fun `female artist blocks only when female is blocked`() {
-        assertTrue(gate(listOf("UCfem"), allowFemale = false))
-        assertFalse(gate(listOf("UCfem"), allowFemale = true))
+        assertTrue(gate(listOf("UCfem"), onlyAcappella = false))
+        assertFalse(gate(listOf("UCfem"), onlyAcappella = true))
     }
 
     @Test
     fun `kids-only artist blocks regardless of the female flag`() {
-        assertTrue(gate(listOf("UCkid"), allowFemale = true))
-        assertTrue(gate(listOf("UCkid"), allowFemale = false))
+        assertTrue(gate(listOf("UCkid"), onlyAcappella = true))
+        assertTrue(gate(listOf("UCkid"), onlyAcappella = false))
     }
 
     @Test
     fun `israeli id blocks even with no flags known`() {
-        assertTrue(gate(listOf("UCunknown"), allowFemale = true, israeli = setOf("UCunknown")))
+        assertTrue(gate(listOf("UCunknown"), onlyAcappella = true, israeli = setOf("UCunknown")))
     }
 
     @Test
     fun `unknown ids fail open and a clean artist passes`() {
-        assertFalse(gate(listOf("UCunknown"), allowFemale = false))
-        assertFalse(gate(listOf("UCok"), allowFemale = false))
-        assertFalse(gate(emptyList(), allowFemale = false))
+        assertFalse(gate(listOf("UCunknown"), onlyAcappella = false))
+        assertFalse(gate(listOf("UCok"), onlyAcappella = false))
+        assertFalse(gate(emptyList(), onlyAcappella = false))
     }
 
     @Test
     fun `any blocked credit blocks the item`() {
-        assertTrue(gate(listOf("UCok", "UCfem"), allowFemale = false))
-        assertFalse(gate(listOf("UCok", "UCfem"), allowFemale = true))
+        assertTrue(gate(listOf("UCok", "UCfem"), onlyAcappella = false))
+        assertFalse(gate(listOf("UCok", "UCfem"), onlyAcappella = true))
     }
 }

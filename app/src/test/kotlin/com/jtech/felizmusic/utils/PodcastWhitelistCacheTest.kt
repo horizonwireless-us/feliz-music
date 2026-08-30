@@ -7,38 +7,29 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * The channel-keyed podcast whitelist gate. Membership is pure; [PodcastWhitelistCache.channelPasses]
- * adds the female gate used on the browse grid + `filterWhitelisted` so a wholly-female host channel is
- * hidden when female filtering is on (matching the server, the offline layer, and the artist browse).
+ * The channel-keyed podcast whitelist gate. Membership is pure and podcasts ignore onlyAcappella;
+ * isFemale was removed from the podcast contract.
  */
 class PodcastWhitelistCacheTest {
 
     @After
     fun reset() = PodcastWhitelistCache.updateAll(emptyList())
 
-    private fun entry(id: String, isFemale: Boolean = false) =
-        PodcastWhitelistEntity(channelId = id, name = id, isFemale = isFemale)
+    private fun entry(id: String, isKidZone: Boolean = false) =
+        PodcastWhitelistEntity(channelId = id, name = id, isKidZone = isKidZone)
 
     @Test
-    fun `membership is female-agnostic - channelPasses is not`() {
-        PodcastWhitelistCache.updateAll(listOf(entry("UCmale"), entry("UCfemale", isFemale = true)))
-        // Pure membership sees both (used for routing / whitelist loading).
-        assertTrue(PodcastWhitelistCache.isChannelWhitelisted("UCmale"))
-        assertTrue(PodcastWhitelistCache.isChannelWhitelisted("UCfemale"))
+    fun `membership is the single podcast gate`() {
+        PodcastWhitelistCache.updateAll(listOf(entry("UCone"), entry("UCtwo", isKidZone = true)))
+        assertTrue(PodcastWhitelistCache.isChannelWhitelisted("UCone"))
+        assertTrue(PodcastWhitelistCache.isChannelWhitelisted("UCtwo"))
+        assertFalse(PodcastWhitelistCache.isChannelWhitelisted("UCother"))
     }
 
     @Test
-    fun `a female channel is hidden when female filtering is on, kept when allowed`() {
-        PodcastWhitelistCache.updateAll(listOf(entry("UCfemale", isFemale = true)))
-        assertFalse(PodcastWhitelistCache.channelPasses("UCfemale", allowFemale = false))
-        assertTrue(PodcastWhitelistCache.channelPasses("UCfemale", allowFemale = true))
-    }
-
-    @Test
-    fun `a non-female channel always passes and a non-member never does`() {
-        PodcastWhitelistCache.updateAll(listOf(entry("UCmale")))
-        assertTrue(PodcastWhitelistCache.channelPasses("UCmale", allowFemale = false))
-        assertTrue(PodcastWhitelistCache.channelPasses("UCmale", allowFemale = true))
-        assertFalse(PodcastWhitelistCache.channelPasses("UCunknown", allowFemale = true))
+    fun `channelPasses equals membership and never filters on acappella`() {
+        PodcastWhitelistCache.updateAll(listOf(entry("UCone")))
+        assertTrue(PodcastWhitelistCache.channelPasses("UCone"))
+        assertFalse(PodcastWhitelistCache.channelPasses("UCunknown"))
     }
 }

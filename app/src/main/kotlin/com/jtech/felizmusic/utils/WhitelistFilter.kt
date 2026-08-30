@@ -167,10 +167,9 @@ suspend fun List<YTItem>.filterWhitelisted(
     val filtered = mutableListOf<Pair<YTItem, Boolean>>()
 
     this.forEach { item ->
-        // Id-level override: a specific item can be hidden everywhere even when its artist is whitelisted
-        // (e.g. one female-featuring song from an otherwise-allowed mixed channel). Gated on the current
-        // content-filter config (a `female` override only hides for users filtering out female), surgical,
-        // and applied before the artist check.
+        // Id-level override: a specific item can be hidden everywhere even when its artist is whitelisted.
+        // blockedContentIds supports global blocks only; the override is surgical and applied before the
+        // artist check.
         if (BlockedIdsCache.isBlocked(item.id, config)) {
             Timber.d("WhitelistFilter: item '${item.title}' (${item.id}) hidden by id override")
             return@forEach
@@ -297,20 +296,20 @@ private suspend fun MusicDatabase.podcastPasses(
     config: ContentFilterConfig,
 ): Boolean {
     if (!config.filtersEnabled) return true
-    // Block Podcasts drops ALL podcast content at this chokepoint, exactly like the female gate:
-    // whitelist membership is irrelevant when the whole category is blocked.
+    // Block Podcasts drops ALL podcast content at this chokepoint; whitelist membership is irrelevant
+    // when the whole category is blocked. Podcasts ignore onlyAcappella.
     if (!com.jtech.felizmusic.sync.PodcastSyncLogic.podcastCategoryAllowed(config.filtersEnabled, config.blockPodcasts)) {
         return false
     }
     val effectiveChannelIds = ids.filterNotNull().flatMap { id ->
         listOfNotNull(id, podcast(id).firstOrNull()?.channelId)
     }
-    // channelPasses gates a wholly-female host channel when female filtering is on (defense-in-depth over
-    // the server, which already filters it) — a female podcast must not slip through this chokepoint.
+    // channelPasses is pure channel membership now; a non-approved podcast channel must not slip
+    // through this chokepoint.
     return com.jtech.felizmusic.sync.PodcastSyncLogic.episodePassesPodcastWhitelist(
         channelIds = effectiveChannelIds,
         filtersEnabled = true,
-        isWhitelistedChannel = { PodcastWhitelistCache.channelPasses(it, config.allowFemaleSingers) },
+        isWhitelistedChannel = { PodcastWhitelistCache.channelPasses(it) },
     )
 }
 
@@ -344,7 +343,7 @@ private suspend fun MusicDatabase.artistMatchesFilters(
     }
 
     val needsRemoteCheck =
-        entry == null || (config.filtersEnabled && !config.allowFemaleSingers && entry?.isFemale == true)
+        entry == null || (config.filtersEnabled && config.acappellaOnly && entry?.isAcappella == false)
 
     if (needsRemoteCheck) {
         // Fall back to DB once before giving up
@@ -358,7 +357,7 @@ private suspend fun MusicDatabase.artistMatchesFilters(
     entry ?: return ArtistFilterDecision(allowed = false, isChasidish = false)
 
     if (config.filtersEnabled) {
-        if (!config.allowFemaleSingers && entry.isFemale) {
+        if (config.acappellaOnly && !entry.isAcappella) {
             return ArtistFilterDecision(false, entry.isChasid)
         }
     }

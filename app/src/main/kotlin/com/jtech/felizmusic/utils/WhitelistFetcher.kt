@@ -54,7 +54,7 @@ object WhitelistFetcher {
                                 source = "mirror",
                                 lastSyncedAt = now,
                                 // Coerce absent booleans to false ONLY here (same as the Firestore `?: false`).
-                                isFemale = doc.isFemale ?: false,
+                                isAcappella = doc.isAcappella ?: false,
                                 isChasid = doc.isChasid ?: false,
                                 isGenZ = doc.isGenZ ?: false,
                                 isKids = doc.isKids ?: false,
@@ -80,7 +80,7 @@ object WhitelistFetcher {
                     snapshot.documents.forEach { doc ->
                         val artistId = (doc.getString("id") ?: doc.getString("artistId")) ?: return@forEach
                         val artistName = (doc.getString("name") ?: doc.getString("artistName")) ?: return@forEach
-                        val isFemale = doc.getBoolean("isFemale") ?: false
+                        val isAcappella = doc.getBoolean("isAcappella") ?: false
                         val isChasid = doc.getBoolean("isChasid") ?: false
                         val isGenZ = doc.getBoolean("isGenZ") ?: false
                         val isKids = doc.getBoolean("isKids") ?: false
@@ -94,7 +94,7 @@ object WhitelistFetcher {
                                 addedAt = now,
                                 source = "firestore",
                                 lastSyncedAt = now,
-                                isFemale = isFemale,
+                                isAcappella = isAcappella,
                                 isChasid = isChasid,
                                 isGenZ = isGenZ,
                                 isKids = isKids,
@@ -185,7 +185,7 @@ object WhitelistFetcher {
                                 channelId = channelId,
                                 name = name,
                                 thumbnailUrl = doc.thumbnailUrl,
-                                isFemale = doc.isFemale,
+                                
                                 isKidZone = doc.isKidZone,
                                 isVerified = doc.isVerified,
                                 showCount = doc.showCount,
@@ -209,7 +209,7 @@ object WhitelistFetcher {
                                 channelId = channelId,
                                 name = name,
                                 thumbnailUrl = doc.getString("thumbnailUrl"),
-                                isFemale = doc.getBoolean("isFemale") ?: false,
+                                
                                 isKidZone = doc.getBoolean("isKidZone") ?: false,
                                 isVerified = doc.getBoolean("isVerified") ?: false,
                                 showCount = (doc.getLong("showCount") ?: 0L).toInt(),

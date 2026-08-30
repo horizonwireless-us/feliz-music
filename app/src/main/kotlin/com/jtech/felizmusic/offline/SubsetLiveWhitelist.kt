@@ -22,12 +22,12 @@ fun subsetSnapshotIsFresh(lastSyncedAtMs: Long, nowMs: Long): Boolean =
  * - an artist absent from [live] (de-whitelisted since the snapshot was built) is DROPPED, along
  *   with every row that references it: its tracks, albums, album memberships, artist playlists,
  *   community members resolved to it, home-rank rows and curated-playlist items;
- * - `isFemale` is overridden by the live flag, so a since-flagged artist is hidden the moment the
+ * - `isAcappella` is overridden by the live flag, so a since-flagged artist is hidden the moment the
  *   app's whitelist sync lands, not on the next snapshot download.
  *
  * An EMPTY [live] map means the whitelist has not synced on this device yet — the overlay is a
  * no-op (never wipe the snapshot on a fresh install where it may be the only whitelist knowledge).
- * [live] maps artist channel id → the live `isFemale` flag.
+ * [live] maps artist channel id → the live `isAcappella` flag.
  */
 fun SubsetCorpus.withLiveWhitelist(live: Map<String, Boolean>): SubsetCorpus {
     if (live.isEmpty()) return this
@@ -39,9 +39,9 @@ fun SubsetCorpus.withLiveWhitelist(live: Map<String, Boolean>): SubsetCorpus {
             changed = true // de-whitelisted → dropped
             continue
         }
-        if (female != a.isFemale) {
+        if (female != a.isAcappella) {
             changed = true
-            overlaidArtists.add(a.copy(isFemale = female))
+            overlaidArtists.add(a.copy(isAcappella = female))
         } else {
             overlaidArtists.add(a)
         }

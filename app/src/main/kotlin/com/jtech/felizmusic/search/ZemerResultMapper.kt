@@ -63,7 +63,7 @@ object ZemerResultMapper {
         SongItem(
             id = videoId,
             // `artistId` is present on /home-rows video cards (null elsewhere) so the artist carries a
-            // real channel id — required for the home one-per-artist dedup + female/israeli check.
+            // real channel id — required for the home one-per-artist dedup + israeli check.
             artists = listOf(Artist(name = artist, id = artistId)),
             title = title,
             // The album link, when the server sends it (/artist tracks) — enables the song menu's
@@ -115,8 +115,7 @@ object ZemerResultMapper {
             radioEndpoint = null,
         )
 
-    // Drop items hidden by the server-listed id overrides, gated on the live content-filter config (a
-    // `female` override only hides for users filtering out female). This is surgical (a specific known
+    // Drop items hidden by the server-listed id overrides (global-only). This is surgical (a specific known
     // id), NOT the artist-membership whitelist the app deliberately never runs over raw Zemer results —
     // so it is safe here and gives the override coverage on the Zemer engine too. See BlockedIdsCache.
     private fun <T : YTItem> List<T>.dropBlocked(): List<T> {
@@ -166,7 +165,7 @@ object ZemerResultMapper {
      * id-overrides). No explicit filtering — Zemer's whitelist-pure corpus has none. The artist-membership
      * whitelist is NOT re-run (whitelist-pure server-side), but each card carries its artist channel id
      * ([ZemerAlbum.artistId]/[ZemerTrack.artistId]/[ZemerArtist.id]) so the caller can run the home
-     * one-per-artist dedup + female/israeli defence-in-depth. `topCommunity` maps to [PlaylistItem]s for
+     * one-per-artist dedup + israeli defence-in-depth. `topCommunity` maps to [PlaylistItem]s for
      * the featured-playlists row (discovery-sourced, view-ranked, whitelist-pure + content-filtered
      * server-side); [formatSongCount] renders the localized "N songs" count and defaults to omitting it.
      * See [HomeRows].
@@ -207,7 +206,7 @@ object ZemerResultMapper {
 
     /**
      * A curated `/zemer-playlists?id=…` response as playable [SongItem]s, in curated order. Filtering
-     * (whitelist, female, videos, id-overrides) already ran server-side against the sent flags, so —
+     * (whitelist, onlyAcappella, videos, id-overrides) already ran server-side against the sent flags, so —
      * like every Zemer surface — only `hideExplicit` and the surgical [dropBlocked] run here.
      */
     fun ZemerCuratedPlaylistResponse.toSongItems(hideExplicit: Boolean): List<SongItem> =

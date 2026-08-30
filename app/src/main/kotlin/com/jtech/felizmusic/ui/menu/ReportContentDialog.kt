@@ -50,7 +50,7 @@ fun ReportContentDialog(
     var comment by remember { mutableStateOf("") }
 
     val reasons = listOf(
-        "female" to stringResource(R.string.report_reason_female),
+        "acappella" to stringResource(R.string.report_reason_acappella),
         "gentile" to stringResource(R.string.report_reason_gentile),
         "bad_playlists" to stringResource(R.string.report_reason_bad_playlists),
         "bad_images" to stringResource(R.string.report_reason_bad_images),

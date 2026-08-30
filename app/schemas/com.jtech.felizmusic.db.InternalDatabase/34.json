@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 34,
-    "identityHash": "34aedfb248fca6ea1217dc974399c622",
+    "identityHash": "d9991b9ae0b3fce2e78f16a94b4d74d9",
     "entities": [
       {
         "tableName": "song",
@@ -1093,7 +1093,7 @@
       },
       {
         "tableName": "artist_whitelist",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`artistId` TEXT NOT NULL, `artistName` TEXT NOT NULL, `addedAt` INTEGER NOT NULL, `source` TEXT NOT NULL, `lastSyncedAt` INTEGER NOT NULL, `isFemale` INTEGER NOT NULL, `isChasid` INTEGER NOT NULL, `isGenZ` INTEGER NOT NULL, `isKids` INTEGER NOT NULL, `isKidZone` INTEGER NOT NULL, PRIMARY KEY(`artistId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`artistId` TEXT NOT NULL, `artistName` TEXT NOT NULL, `addedAt` INTEGER NOT NULL, `source` TEXT NOT NULL, `lastSyncedAt` INTEGER NOT NULL, `isAcappella` INTEGER NOT NULL, `isChasid` INTEGER NOT NULL, `isGenZ` INTEGER NOT NULL, `isKids` INTEGER NOT NULL, `isKidZone` INTEGER NOT NULL, PRIMARY KEY(`artistId`))",
         "fields": [
           {
             "fieldPath": "artistId",
@@ -1126,8 +1126,8 @@
             "notNull": true
           },
           {
-            "fieldPath": "isFemale",
-            "columnName": "isFemale",
+            "fieldPath": "isAcappella",
+            "columnName": "isAcappella",
             "affinity": "INTEGER",
             "notNull": true
           },
@@ -1238,7 +1238,7 @@
       },
       {
         "tableName": "podcast_whitelist",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`channelId` TEXT NOT NULL, `name` TEXT NOT NULL, `thumbnailUrl` TEXT, `isFemale` INTEGER NOT NULL, `isKidZone` INTEGER NOT NULL, `isVerified` INTEGER NOT NULL, `showCount` INTEGER NOT NULL, `lastSyncedAt` INTEGER NOT NULL, PRIMARY KEY(`channelId`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`channelId` TEXT NOT NULL, `name` TEXT NOT NULL, `thumbnailUrl` TEXT, `isKidZone` INTEGER NOT NULL, `isVerified` INTEGER NOT NULL, `showCount` INTEGER NOT NULL, `lastSyncedAt` INTEGER NOT NULL, PRIMARY KEY(`channelId`))",
         "fields": [
           {
             "fieldPath": "channelId",
@@ -1256,12 +1256,6 @@
             "fieldPath": "thumbnailUrl",
             "columnName": "thumbnailUrl",
             "affinity": "TEXT"
-          },
-          {
-            "fieldPath": "isFemale",
-            "columnName": "isFemale",
-            "affinity": "INTEGER",
-            "notNull": true
           },
           {
             "fieldPath": "isKidZone",
@@ -1362,7 +1356,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '34aedfb248fca6ea1217dc974399c622')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'd9991b9ae0b3fce2e78f16a94b4d74d9')"
     ]
   }
 }

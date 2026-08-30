@@ -3,23 +3,20 @@ package com.jtech.felizmusic.utils
 /**
  * In-memory representation of content filter settings pulled from DataStore.
  * Includes fields for sync functionality and device-specific preferences.
+ *
+ * Canonical Acappella contract: [acappellaOnly] restricts music to artists
+ * whose owning-artist isAcappella flag is true. false/absent means
+ * unrestricted. Podcasts are never affected by [acappellaOnly]; they keep the
+ * existing podcast-specific block only.
  */
 data class ContentFilterConfig(
     val filtersEnabled: Boolean = true,
-    val allowFemaleSingers: Boolean = false,
+    val acappellaOnly: Boolean = false,
     val blockVideos: Boolean = false,
     val blockPodcasts: Boolean = false,
-    val femalePasscodeHash: String? = null,
     val lastSyncTime: Long = -1L,
     val isSynced: Boolean = false
 )
-
-/**
- * Whether female singers are currently allowed: either filtering is off entirely, or the female toggle
- * is on. The single source for the podcast female gate — used by [ContentFilterState]-driven podcast
- * surfaces (library sources, the whitelisted-podcasts browse VM) so they can't drift apart.
- */
-fun ContentFilterConfig.allowsFemale(): Boolean = !filtersEnabled || allowFemaleSingers
 
 object ContentFilterState {
     private val _state = kotlinx.coroutines.flow.MutableStateFlow(ContentFilterConfig())
@@ -36,20 +33,18 @@ object ContentFilterState {
      */
     fun updateConfig(
         filtersEnabled: Boolean? = null,
-        allowFemaleSingers: Boolean? = null,
+        acappellaOnly: Boolean? = null,
         blockVideos: Boolean? = null,
         blockPodcasts: Boolean? = null,
-        femalePasscodeHash: String? = null,
         lastSyncTime: Long? = null,
         isSynced: Boolean? = null
     ) {
         val currentConfig = current
         current = currentConfig.copy(
             filtersEnabled = filtersEnabled ?: currentConfig.filtersEnabled,
-            allowFemaleSingers = allowFemaleSingers ?: currentConfig.allowFemaleSingers,
+            acappellaOnly = acappellaOnly ?: currentConfig.acappellaOnly,
             blockVideos = blockVideos ?: currentConfig.blockVideos,
             blockPodcasts = blockPodcasts ?: currentConfig.blockPodcasts,
-            femalePasscodeHash = femalePasscodeHash ?: currentConfig.femalePasscodeHash,
             lastSyncTime = lastSyncTime ?: currentConfig.lastSyncTime,
             isSynced = isSynced ?: currentConfig.isSynced
         )
@@ -60,17 +55,15 @@ object ContentFilterState {
      */
     fun updateContentFilters(
         filtersEnabled: Boolean? = null,
-        allowFemaleSingers: Boolean? = null,
+        acappellaOnly: Boolean? = null,
         blockVideos: Boolean? = null,
-        blockPodcasts: Boolean? = null,
-        femalePasscodeHash: String? = null
+        blockPodcasts: Boolean? = null
     ) {
         updateConfig(
             filtersEnabled = filtersEnabled,
-            allowFemaleSingers = allowFemaleSingers,
+            acappellaOnly = acappellaOnly,
             blockVideos = blockVideos,
-            blockPodcasts = blockPodcasts,
-            femalePasscodeHash = femalePasscodeHash
+            blockPodcasts = blockPodcasts
         )
     }
 
@@ -112,9 +105,8 @@ object ContentFilterState {
      */
     val hasActiveFilters: Boolean
         get() = current.filtersEnabled && (
-            current.allowFemaleSingers.not() ||
+            current.acappellaOnly ||
             current.blockVideos ||
-            current.blockPodcasts ||
-            current.femalePasscodeHash != null
+            current.blockPodcasts
         )
 }

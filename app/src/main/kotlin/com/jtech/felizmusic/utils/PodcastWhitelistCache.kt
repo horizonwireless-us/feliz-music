@@ -27,13 +27,9 @@ object PodcastWhitelistCache {
     fun channelIds(): Set<String> = memory.keys
 
     /**
-     * Whether [channelId] is whitelisted AND passes the female gate — a wholly-female channel
-     * (`isFemale`) is hidden when [allowFemale] is false, matching the server, the offline layer, and the
-     * artist browse. (`kidZone` is always off for podcast surfaces, so it's not a factor here.) Use this
-     * for DISPLAY/filtering; [isChannelWhitelisted] stays pure membership for routing / whitelist loading.
+     * Whether [channelId] is whitelisted. Podcasts are unaffected by the music-only Acappella filter;
+     * isFemale was removed from the podcast contract. [isChannelWhitelisted] is the same membership
+     * check and remains the routing/loading primitive.
      */
-    fun channelPasses(channelId: String, allowFemale: Boolean): Boolean {
-        val entry = memory[channelId] ?: return false
-        return allowFemale || !entry.isFemale
-    }
+    fun channelPasses(channelId: String): Boolean = isChannelWhitelisted(channelId)
 }

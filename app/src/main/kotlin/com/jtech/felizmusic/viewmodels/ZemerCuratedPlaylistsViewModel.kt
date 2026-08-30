@@ -26,7 +26,7 @@ import javax.inject.Inject
  * the guard that upholds "a list fetched under one flag set is never shown under another" against a
  * slow fetch racing a flag change. Pure, so the rule is unit-testable.
  *
- * Deliberately compares ONLY [ZemerSearchOptions.allowFemale]: [ZemerSearchOptions.blockVideos] is a
+ * Deliberately compares ONLY [ZemerSearchOptions.onlyAcappella]: [ZemerSearchOptions.blockVideos] is a
  * pinned constant `false` ([com.jtech.felizmusic.search.zemerSearchOptions] — the server always sends
  * videos so the client can render them as audio; blocking is enforced client-side, not by the
  * request). Comparing it against the live [ContentFilterConfig.blockVideos] would make this guard
@@ -35,7 +35,7 @@ import javax.inject.Inject
  * that comparison if [ZemerSearchOptions] ever gains a field that CAN vary with `blockVideos` again.
  */
 internal fun zemerOptionsStillCurrent(options: ZemerSearchOptions, config: ContentFilterConfig): Boolean =
-    options.allowFemale == config.allowFemaleSingers
+    options.onlyAcappella == config.acappellaOnly
 
 /**
  * Backs the hand-curated "Zemer Playlists" Home section, deliberately separate from [HomeViewModel]

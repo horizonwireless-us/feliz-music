@@ -230,7 +230,7 @@
     <string name="about">אודות</string>
     <string name="new_version_available">גירסה חדשה זמינה</string>
     <string name="content_filters">סינון תוכן</string>
-    <string name="allow_female_singers">אפשר זמרות</string>
+    <string name="acappella_only">אקפלה בלבד</string>
     <string name="enable_personal_filters">הפעלת מסננים אישיים</string>
     <string name="i_am_chasidish">אני חסידי</string>
     <string name="radio_mode">מצב רדיו</string>

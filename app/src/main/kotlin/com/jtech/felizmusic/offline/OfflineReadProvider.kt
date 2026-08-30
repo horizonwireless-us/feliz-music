@@ -65,7 +65,7 @@ class OfflineReadProvider @Inject constructor(
     private suspend fun snapshot(): Loaded? {
         val lastSyncedAt = context.dataStore.data.first()[OfflineSubsetLastSyncedAtKey] ?: 0L
         if (!subsetSnapshotIsFresh(lastSyncedAt, System.currentTimeMillis())) return null
-        val live = WhitelistCache.snapshot().associate { it.artistId to it.isFemale }
+        val live = WhitelistCache.snapshot().associate { it.artistId to it.isAcappella }
         val livePodcastChannels = PodcastWhitelistCache.channelIds()
         return synchronized(lock) {
             val manifest = store.localManifest() ?: run { cache = null; return null }
@@ -79,60 +79,60 @@ class OfflineReadProvider @Inject constructor(
         }
     }
 
-    suspend fun search(query: String, k: Int, allowFemale: Boolean, blockVideos: Boolean): ZemerSearchResponse? =
+    suspend fun search(query: String, k: Int, onlyAcappella: Boolean, blockVideos: Boolean): ZemerSearchResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlineSearch(it.corpus, it.female, query, k, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlineSearch(it.corpus, it.female, query, k, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun album(id: String, allowFemale: Boolean, blockVideos: Boolean): ZemerAlbumResponse? =
+    suspend fun album(id: String, onlyAcappella: Boolean, blockVideos: Boolean): ZemerAlbumResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlineAlbum(it.corpus, it.female, id, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlineAlbum(it.corpus, it.female, id, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun artist(id: String, allowFemale: Boolean, blockVideos: Boolean): ZemerArtistResponse? =
+    suspend fun artist(id: String, onlyAcappella: Boolean, blockVideos: Boolean): ZemerArtistResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlineArtist(it.corpus, it.female, id, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlineArtist(it.corpus, it.female, id, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun homeRows(allowFemale: Boolean, blockVideos: Boolean): ZemerHomeRowsResponse? =
+    suspend fun homeRows(onlyAcappella: Boolean, blockVideos: Boolean): ZemerHomeRowsResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlineHomeRows(it.corpus, it.female, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlineHomeRows(it.corpus, it.female, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun curatedPlaylists(allowFemale: Boolean, blockVideos: Boolean): ZemerCuratedPlaylistsResponse? =
+    suspend fun curatedPlaylists(onlyAcappella: Boolean, blockVideos: Boolean): ZemerCuratedPlaylistsResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlineCuratedPlaylists(it.corpus, it.female, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlineCuratedPlaylists(it.corpus, it.female, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun curatedPlaylist(id: String, allowFemale: Boolean, blockVideos: Boolean): ZemerCuratedPlaylistResponse? =
+    suspend fun curatedPlaylist(id: String, onlyAcappella: Boolean, blockVideos: Boolean): ZemerCuratedPlaylistResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlineCuratedPlaylist(it.corpus, it.female, id, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlineCuratedPlaylist(it.corpus, it.female, id, onlyAcappella, blockVideos, kidZone = false) }
         }
 
     // Podcasts (server reply 4 — pre-gated to approved channels in the snapshot). The browse-grid + channel
     // allow-set come from the Room-backed content mirror, not here; these serve the drill-in reads.
-    suspend fun podcast(id: String, offset: Int, allowFemale: Boolean, blockVideos: Boolean): ZemerPodcastResponse? =
+    suspend fun podcast(id: String, offset: Int, onlyAcappella: Boolean, blockVideos: Boolean): ZemerPodcastResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlinePodcast(it.corpus, id, offset, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlinePodcast(it.corpus, id, offset, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun podcastChannel(id: String, allowFemale: Boolean, blockVideos: Boolean): ZemerPodcastChannelResponse? =
+    suspend fun podcastChannel(id: String, onlyAcappella: Boolean, blockVideos: Boolean): ZemerPodcastChannelResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlinePodcastChannel(it.corpus, id, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlinePodcastChannel(it.corpus, id, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun podcastsNewEpisodes(k: Int, allowFemale: Boolean, blockVideos: Boolean): ZemerNewEpisodesResponse? =
+    suspend fun podcastsNewEpisodes(k: Int, onlyAcappella: Boolean, blockVideos: Boolean): ZemerNewEpisodesResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlinePodcastsNewEpisodes(it.corpus, k, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlinePodcastsNewEpisodes(it.corpus, k, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun podcastGenres(allowFemale: Boolean, blockVideos: Boolean): ZemerPodcastGenresResponse? =
+    suspend fun podcastGenres(onlyAcappella: Boolean, blockVideos: Boolean): ZemerPodcastGenresResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlinePodcastGenres(it.corpus, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlinePodcastGenres(it.corpus, onlyAcappella, blockVideos, kidZone = false) }
         }
 
-    suspend fun podcastGenre(id: String, allowFemale: Boolean, blockVideos: Boolean): ZemerPodcastGenrePageResponse? =
+    suspend fun podcastGenre(id: String, onlyAcappella: Boolean, blockVideos: Boolean): ZemerPodcastGenrePageResponse? =
         withContext(Dispatchers.IO) {
-            snapshot()?.let { offlinePodcastGenre(it.corpus, id, allowFemale, blockVideos, kidZone = false) }
+            snapshot()?.let { offlinePodcastGenre(it.corpus, id, onlyAcappella, blockVideos, kidZone = false) }
         }
 }

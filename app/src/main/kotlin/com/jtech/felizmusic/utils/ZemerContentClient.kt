@@ -203,7 +203,7 @@ data class ContentWhitelistDoc(
     @SerialName("artistId") val artistId: String? = null,
     val name: String? = null,
     @SerialName("artistName") val artistName: String? = null,
-    val isFemale: Boolean? = null,
+    val isAcappella: Boolean? = null,
     val isChasid: Boolean? = null,
     val isGenZ: Boolean? = null,
     val isKids: Boolean? = null,
@@ -219,7 +219,7 @@ data class ContentWhitelistDoc(
 /**
  * One `/podcastChannelsWhitelist` document (the mirror's copy of a Firestore `podcastChannelsWhitelist`
  * doc) — a whitelisted podcast HOST CHANNEL. `id` is the `UC…` channel id; `thumbnailUrl` is the durable
- * channel avatar; `isFemale`/`isKidZone` are the wholly-female/kids channel flags; `showCount` is how
+ * channel avatar; `isKidZone` is the kids channel flag; `showCount` is how
  * many of the channel's shows are known.
  */
 @Serializable
@@ -227,7 +227,6 @@ data class ContentPodcastDoc(
     val id: String = "",
     val name: String? = null,
     val thumbnailUrl: String? = null,
-    val isFemale: Boolean = false,
     val isKidZone: Boolean = false,
     val isVerified: Boolean = false,
     val showCount: Int = 0,

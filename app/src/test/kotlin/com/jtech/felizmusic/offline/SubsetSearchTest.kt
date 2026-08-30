@@ -62,10 +62,10 @@ class SubsetSearchTest {
     // --- content filters + category assembly (categories.mjs + api.mjs /search) --------------------
 
     // female primary
-    private val fem = SubArtist("a_fem", "Franciska", null, isFemale = true, isChasid = false, isKidZone = false)
-    private val leiner = SubArtist("a_leiner", "Simcha Leiner", null, isFemale = false, isChasid = false, isKidZone = false)
-    private val miami = SubArtist("a_miami", "Miami Boys Choir", null, isFemale = false, isChasid = false, isKidZone = false)
-    private val kids = SubArtist("a_kids", "KidZone Singers", null, isFemale = false, isChasid = false, isKidZone = true)
+    private val fem = SubArtist("a_fem", "Franciska", null, isAcappella = true, isChasid = false, isKidZone = false)
+    private val leiner = SubArtist("a_leiner", "Simcha Leiner", null, isAcappella = false, isChasid = false, isKidZone = false)
+    private val miami = SubArtist("a_miami", "Miami Boys Choir", null, isAcappella = false, isChasid = false, isKidZone = false)
+    private val kids = SubArtist("a_kids", "KidZone Singers", null, isAcappella = false, isChasid = false, isKidZone = true)
 
     private fun track(videoId: String, title: String, artistId: String, isVideo: Boolean = false) =
         SubTrack(videoId, title, artistId, isVideo = isVideo, explicit = false, durationSec = 100, playCount = null, uploadDate = null)
@@ -97,11 +97,11 @@ class SubsetSearchTest {
     )
     private val matcher = buildFemaleMatcher(corpus.artists)
 
-    private fun songIds(allowFemale: Boolean = true, blockVideos: Boolean = false, kidZone: Boolean = false) =
-        offlineSearch(corpus, matcher, "kol", 8, allowFemale, blockVideos, kidZone).categories.songs.map { it.videoId }.toSet()
+    private fun songIds(onlyAcappella: Boolean = true, blockVideos: Boolean = false, kidZone: Boolean = false) =
+        offlineSearch(corpus, matcher, "kol", 8, onlyAcappella, blockVideos, kidZone).categories.songs.map { it.videoId }.toSet()
 
-    private fun videoIds(allowFemale: Boolean = true, blockVideos: Boolean = false, kidZone: Boolean = false) =
-        offlineSearch(corpus, matcher, "kol", 8, allowFemale, blockVideos, kidZone).categories.videos.map { it.videoId }.toSet()
+    private fun videoIds(onlyAcappella: Boolean = true, blockVideos: Boolean = false, kidZone: Boolean = false) =
+        offlineSearch(corpus, matcher, "kol", 8, onlyAcappella, blockVideos, kidZone).categories.videos.map { it.videoId }.toSet()
 
     @Test
     fun `song vs video split routes tracks by isVideo`() {
@@ -112,18 +112,18 @@ class SubsetSearchTest {
 
     @Test
     fun `album vs single split routes by type`() {
-        val cats = offlineSearch(corpus, matcher, "zbumba", 8, allowFemale = true, blockVideos = false, kidZone = false).categories
+        val cats = offlineSearch(corpus, matcher, "zbumba", 8, onlyAcappella = true, blockVideos = false, kidZone = false).categories
         assertEquals(setOf("MPREb_albm00"), cats.albums.map { it.id }.toSet())
         assertEquals(setOf("MPREb_sngl00"), cats.singles.map { it.id }.toSet())
     }
 
     @Test
-    fun `allowFemale=false drops female-primary AND female-credited tracks`() {
-        val open = songIds(allowFemale = true)
+    fun `onlyAcappella=false drops female-primary AND female-credited tracks`() {
+        val open = songIds(onlyAcappella = true)
         assertTrue("Kol Isha present when female allowed", "song_femm00" in open)
         assertTrue("feat. Franciska present when female allowed", "song_feat00" in open)
 
-        val blocked = songIds(allowFemale = false)
+        val blocked = songIds(onlyAcappella = false)
         assertFalse("female primary dropped", "song_femm00" in blocked)
         assertFalse("female-credited (feat.) dropped", "song_feat00" in blocked)
         assertTrue("male track survives", "song_male00" in blocked)
@@ -151,7 +151,7 @@ class SubsetSearchTest {
             homeRank = emptyList(), zemerPlaylists = emptyList(), zemerItems = emptyList(),
             blocked = SubBlocked(emptySet(), emptySet()),
         )
-        val songs = offlineSearch(c, buildFemaleMatcher(c.artists), "aleph beis gimel", 8, allowFemale = true, blockVideos = false, kidZone = false)
+        val songs = offlineSearch(c, buildFemaleMatcher(c.artists), "aleph beis gimel", 8, onlyAcappella = true, blockVideos = false, kidZone = false)
             .categories.songs.map { it.videoId }.toSet()
         assertTrue("full-coverage hit kept", "cov_high000" in songs)
         assertFalse("single-word hit dropped by the coverage gate", "cov_low0000" in songs)

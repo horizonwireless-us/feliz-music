@@ -18,10 +18,10 @@ import org.junit.Test
  */
 class SubsetReadLayerTest {
 
-    // --- artists (id, name, thumbnail, isFemale, isChasid, isKidZone) -----------------------------
-    private val alef = SubArtist("UCa", "Alef", "ta", isFemale = false, isChasid = false, isKidZone = false)
-    private val fem = SubArtist("UCf", "Franciska", "tf", isFemale = true, isChasid = false, isKidZone = false)
-    private val kid = SubArtist("UCk", "KidStar", "tk", isFemale = false, isChasid = false, isKidZone = true)
+    // --- artists (id, name, thumbnail, isAcappella, isChasid, isKidZone) -----------------------------
+    private val alef = SubArtist("UCa", "Alef", "ta", isAcappella = false, isChasid = false, isKidZone = false)
+    private val fem = SubArtist("UCf", "Franciska", "tf", isAcappella = true, isChasid = false, isKidZone = false)
+    private val kid = SubArtist("UCk", "KidStar", "tk", isAcappella = false, isChasid = false, isKidZone = true)
 
     // --- tracks (videoId, title, artistId, isVideo, explicit, durationSec, playCount, uploadDate) --
     private val v1 = SubTrack("v1", "Song One", "UCa", false, false, 200, 100, null)
@@ -74,7 +74,7 @@ class SubsetReadLayerTest {
 
     @Test
     fun `album lists members in pos order with trackNumber pos+1 and header from the artist`() {
-        val r = offlineAlbum(corpus, female, "al1", allowFemale = true, blockVideos = false, kidZone = false)!!
+        val r = offlineAlbum(corpus, female, "al1", onlyAcappella = true, blockVideos = false, kidZone = false)!!
         assertEquals("al1", r.album.id)
         assertEquals("Alef", r.album.artist)
         assertEquals(2020, r.album.year)
@@ -88,7 +88,7 @@ class SubsetReadLayerTest {
     @Test
     fun `album per-track video filter drops video members when videos blocked`() {
         // al2 = {v3 (audio), v4 (video)}; blockVideos drops v4 only, header still resolves.
-        val r = offlineAlbum(corpus, female, "al2", allowFemale = true, blockVideos = true, kidZone = false)!!
+        val r = offlineAlbum(corpus, female, "al2", onlyAcappella = true, blockVideos = true, kidZone = false)!!
         assertEquals(listOf("v3"), r.tracks.map { it.videoId })
         assertEquals(listOf(1), r.tracks.map { it.trackNumber }) // v3 is pos 0 → trackNumber 1
     }
@@ -97,13 +97,13 @@ class SubsetReadLayerTest {
 
     @Test
     fun `home rows follow home_rank order, skip non-videos, and honor filters`() {
-        val open = offlineHomeRows(corpus, female, allowFemale = true, blockVideos = false, kidZone = false)
+        val open = offlineHomeRows(corpus, female, onlyAcappella = true, blockVideos = false, kidZone = false)
         assertEquals(listOf("al2", "al1", "alf"), open.topAlbums.map { it.id }) // ranked order
         assertEquals(listOf("v4"), open.topVideos.map { it.videoId }) // v1 is not a video → dropped
         assertEquals(listOf("UCa", "UCf"), open.topArtists.map { it.id })
         assertEquals("UCa", open.topVideos.first().artistId) // artistId carried for the home dedup
 
-        val filtered = offlineHomeRows(corpus, female, allowFemale = false, blockVideos = true, kidZone = false)
+        val filtered = offlineHomeRows(corpus, female, onlyAcappella = false, blockVideos = true, kidZone = false)
         assertEquals(listOf("al2", "al1"), filtered.topAlbums.map { it.id }) // female-artist album gone
         assertTrue("blockVideos empties top-videos", filtered.topVideos.isEmpty())
         assertEquals(listOf("UCa"), filtered.topArtists.map { it.id }) // female artist gone
@@ -113,7 +113,7 @@ class SubsetReadLayerTest {
 
     @Test
     fun `curated detail expands albums, dedupes first-position-wins, and ranks by raw order`() {
-        val r = offlineCuratedPlaylist(corpus, female, "auto-mix", allowFemale = true, blockVideos = false, kidZone = false)!!
+        val r = offlineCuratedPlaylist(corpus, female, "auto-mix", onlyAcappella = true, blockVideos = false, kidZone = false)!!
         // v1 appears directly (pos 0) AND inside al1 — kept once, at its first (direct) position.
         assertEquals(listOf("v1", "v2"), r.tracks.map { it.videoId })
         assertFalse("v1's kept position is the direct pick → fromAlbum=false", r.tracks[0].fromAlbum)
@@ -133,19 +133,19 @@ class SubsetReadLayerTest {
 
     @Test
     fun `a playlist with no surviving member is hidden from the list and 404 on detail`() {
-        val open = offlineCuratedPlaylists(corpus, female, allowFemale = true, blockVideos = false, kidZone = false)
+        val open = offlineCuratedPlaylists(corpus, female, onlyAcappella = true, blockVideos = false, kidZone = false)
         assertEquals(listOf("auto-mix", "female-only"), open.playlists.map { it.id }) // editorial order
 
-        val blocked = offlineCuratedPlaylists(corpus, female, allowFemale = false, blockVideos = false, kidZone = false)
+        val blocked = offlineCuratedPlaylists(corpus, female, onlyAcappella = false, blockVideos = false, kidZone = false)
         assertEquals("female-only's sole member is credited-female → hidden", listOf("auto-mix"), blocked.playlists.map { it.id })
-        assertNull("and its detail is a 404", offlineCuratedPlaylist(corpus, female, "female-only", allowFemale = false, blockVideos = false, kidZone = false))
+        assertNull("and its detail is a 404", offlineCuratedPlaylist(corpus, female, "female-only", onlyAcappella = false, blockVideos = false, kidZone = false))
     }
 
     // --- /artist --------------------------------------------------------------------------------------
 
     @Test
     fun `artist page splits songs-videos, ranks songs by play count with nulls last, albums year desc`() {
-        val r = offlineArtist(corpus, female, "UCa", allowFemale = true, blockVideos = false, kidZone = false)!!
+        val r = offlineArtist(corpus, female, "UCa", onlyAcappella = true, blockVideos = false, kidZone = false)!!
         assertEquals("Alef", r.artist.name)
         // Top songs: v5 (999) > v2 (300) > v1 (100) > v3 (null plays last); v4 is a video.
         assertEquals(listOf("v5", "v2", "v1", "v3"), r.songs.map { it.videoId })
@@ -159,16 +159,16 @@ class SubsetReadLayerTest {
     @Test
     fun `artist gate and featuring rule - female artist 404s and credited-female tracks drop when blocked`() {
         // The female artist's page is a 404 under the gate...
-        assertNull(offlineArtist(corpus, female, "UCf", allowFemale = false, blockVideos = false, kidZone = false))
+        assertNull(offlineArtist(corpus, female, "UCf", onlyAcappella = false, blockVideos = false, kidZone = false))
         // ...and a male artist's track FEATURING a female (v5) drops from his page.
-        val r = offlineArtist(corpus, female, "UCa", allowFemale = false, blockVideos = false, kidZone = false)!!
+        val r = offlineArtist(corpus, female, "UCa", onlyAcappella = false, blockVideos = false, kidZone = false)!!
         assertEquals(listOf("v2", "v1", "v3"), r.songs.map { it.videoId })
     }
 
     @Test
     fun `artist videos empty under blockVideos and unknown artist is a 404`() {
-        val r = offlineArtist(corpus, female, "UCa", allowFemale = true, blockVideos = true, kidZone = false)!!
+        val r = offlineArtist(corpus, female, "UCa", onlyAcappella = true, blockVideos = true, kidZone = false)!!
         assertTrue(r.videos.isEmpty())
-        assertNull(offlineArtist(corpus, female, "UCnope", allowFemale = true, blockVideos = false, kidZone = false))
+        assertNull(offlineArtist(corpus, female, "UCnope", onlyAcappella = true, blockVideos = false, kidZone = false))
     }
 }

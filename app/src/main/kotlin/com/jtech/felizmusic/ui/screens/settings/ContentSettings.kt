@@ -57,7 +57,7 @@ import com.jtech.felizmusic.ui.component.DefaultDialog
 import com.jtech.felizmusic.auth.AuthState
 import com.jtech.felizmusic.auth.UserAuthManager
 import com.jtech.felizmusic.constants.AllowChasidishKey
-import com.jtech.felizmusic.constants.AllowFemaleSingersKey
+import com.jtech.felizmusic.constants.AcappellaOnlyKey
 import com.jtech.felizmusic.constants.BlockVideosKey
 import com.jtech.felizmusic.constants.BlockPodcastsKey
 import com.jtech.felizmusic.constants.AppLanguageKey
@@ -202,16 +202,16 @@ fun ContentSettings(
     val (lengthTop, onLengthTopChange) = rememberPreference(key = TopSize, defaultValue = "50")
     val (quickPicks, onQuickPicksChange) = rememberEnumPreference(key = QuickPicksKey, defaultValue = QuickPicks.QUICK_PICKS)
     val (enableContentFilters, onEnableContentFiltersChange) = rememberPreference(key = EnableContentFiltersKey, defaultValue = true)
-    val (allowFemaleSingers, onAllowFemaleSingersChange) = rememberPreference(key = AllowFemaleSingersKey, defaultValue = false)
+    val (acappellaOnly, onAcappellaOnlyChange) = rememberPreference(key = AcappellaOnlyKey, defaultValue = false)
     val (allowChasidish, onAllowChasidishChange) = rememberPreference(key = AllowChasidishKey, defaultValue = false)
     val (blockVideos, onBlockVideosChange) = rememberPreference(key = BlockVideosKey, defaultValue = false)
     val (blockPodcasts, onBlockPodcastsChange) = rememberPreference(key = BlockPodcastsKey, defaultValue = false)
 
     // Update ContentFilterState when preferences change (excluding chasidish since it's for recommendations only)
-    LaunchedEffect(enableContentFilters, allowFemaleSingers, blockVideos, blockPodcasts) {
+    LaunchedEffect(enableContentFilters, acappellaOnly, blockVideos, blockPodcasts) {
         ContentFilterState.updateContentFilters(
             filtersEnabled = enableContentFilters,
-            allowFemaleSingers = allowFemaleSingers,
+            acappellaOnly = acappellaOnly,
             blockVideos = blockVideos,
             blockPodcasts = blockPodcasts
         )
@@ -376,10 +376,10 @@ fun ContentSettings(
                 },
                 {
                     SwitchPreference(
-                        title = { Text(stringResource(R.string.allow_female_singers)) },
+                        title = { Text(stringResource(R.string.acappella_only)) },
                         icon = { Icon(painterResource(R.drawable.person), null) },
-                        checked = allowFemaleSingers,
-                        onCheckedChange = onAllowFemaleSingersChange,
+                        checked = acappellaOnly,
+                        onCheckedChange = onAcappellaOnlyChange,
                         isEnabled = enableContentFilters && togglesEnabled
                     )
                 },

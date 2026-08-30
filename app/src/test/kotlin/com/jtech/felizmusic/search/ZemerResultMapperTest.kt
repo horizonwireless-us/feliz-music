@@ -472,9 +472,9 @@ class ZemerResultMapperTest {
     }
 
     @Test
-    fun `female-reason ids are dropped from zemer results only when filtering out female`() {
+    fun `blocked ids are dropped from zemer results whenever filters are enabled`() {
         BlockedIdsCache.updateAll(
-            mapOf("blockedSong" to "female", "blockedPlaylist" to "female"),
+            mapOf("blockedSong" to "global", "blockedPlaylist" to "global"),
         )
         val resp = ZemerSearchResponse(
             categories = ZemerCategories(
@@ -486,8 +486,8 @@ class ZemerResultMapperTest {
             ),
         )
 
-        // Female filtered out -> the female-reason ids are hidden everywhere.
-        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, allowFemaleSingers = false)
+        // Filters enabled -> global overrides are hidden everywhere.
+        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = false)
         assertEquals(
             listOf("okSong"),
             ZemerResultMapper.filtered(resp, SearchFilter.FILTER_SONG, hideExplicit = false).items.map { it.id },
@@ -498,8 +498,8 @@ class ZemerResultMapperTest {
                 .items.map { it.id },
         )
 
-        // Female allowed -> the same ids show again (the override is conditional).
-        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, allowFemaleSingers = true)
+        // Filters disabled -> overrides are inert, the same ids show again.
+        ContentFilterState.current = ContentFilterConfig(filtersEnabled = false)
         assertEquals(
             listOf("okSong", "blockedSong"),
             ZemerResultMapper.filtered(resp, SearchFilter.FILTER_SONG, hideExplicit = false).items.map { it.id },
@@ -686,10 +686,10 @@ class ZemerResultMapperTest {
             tracks = listOf(ZemerTrack("ok", "OK", "A"), ZemerTrack("femaleTrack", "F", "B")),
         )
 
-        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, allowFemaleSingers = false)
+        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = false)
         assertEquals(listOf("ok"), resp.toSongItems().map { it.id })
 
-        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, allowFemaleSingers = true)
+        ContentFilterState.current = ContentFilterConfig(filtersEnabled = true, acappellaOnly = true)
         assertEquals(listOf("ok", "femaleTrack"), resp.toSongItems().map { it.id })
     }
 

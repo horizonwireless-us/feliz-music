@@ -72,8 +72,8 @@ class VideoHomeRowsViewModel @Inject constructor(
                     val entryById = WhitelistCache.snapshot().associateBy { it.artistId }
                     fun blocked(ids: List<String>) = RankedContentGate.isBlockedRanked(
                         ids = ids,
-                        allowFemale = options.allowFemale,
-                        flagsOf = { id -> entryById[id]?.let { RankedContentGate.Flags(it.isFemale, it.isKids) } },
+                        acappellaOnly = options.onlyAcappella,
+                        flagsOf = { id -> entryById[id]?.let { RankedContentGate.Flags(it.isAcappella, it.isKids) } },
                     )
                     val trending = fetched.trending.filterNot { blocked(it.artists.mapNotNull { a -> a.id }) }
                     val newVideos = fetched.newVideos.filterNot { blocked(it.artists.mapNotNull { a -> a.id }) }

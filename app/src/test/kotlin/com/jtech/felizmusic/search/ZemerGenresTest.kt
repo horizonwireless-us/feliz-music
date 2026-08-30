@@ -22,46 +22,46 @@ class ZemerGenresTest {
 
     @Test
     fun `catalog request always carries all three content flags, even when all-open`() {
-        val params = zemerGenresParameters(id = null, allowFemale = true, blockVideos = false)
+        val params = zemerGenresParameters(id = null, onlyAcappella = true, blockVideos = false)
 
-        assertEquals(listOf("allowFemale", "blockVideos", "kidZone"), params.map { it.first })
-        assertEquals("1", params.toMap()["allowFemale"])
+        assertEquals(listOf("onlyAcappella", "blockVideos", "kidZone"), params.map { it.first })
+        assertEquals("1", params.toMap()["onlyAcappella"])
         assertEquals("0", params.toMap()["blockVideos"])
         assertEquals("0", params.toMap()["kidZone"])
     }
 
     @Test
     fun `page request carries the slug plus the same three flags, no offset on page zero`() {
-        val params = zemerGenresParameters(id = "purim", allowFemale = false, blockVideos = true)
+        val params = zemerGenresParameters(id = "purim", onlyAcappella = false, blockVideos = true)
 
-        assertEquals(listOf("id", "allowFemale", "blockVideos", "kidZone"), params.map { it.first })
+        assertEquals(listOf("id", "onlyAcappella", "blockVideos", "kidZone"), params.map { it.first })
         assertEquals("purim", params.toMap()["id"])
         // The crux: a restricted user's flags are explicit, never left to the server default.
-        assertEquals("0", params.toMap()["allowFemale"])
+        assertEquals("0", params.toMap()["onlyAcappella"])
         assertEquals("1", params.toMap()["blockVideos"])
     }
 
     @Test
     fun `offset is sent only when paging past the first page`() {
-        val paged = zemerGenresParameters(id = "purim", allowFemale = true, blockVideos = false, offset = 100)
+        val paged = zemerGenresParameters(id = "purim", onlyAcappella = true, blockVideos = false, offset = 100)
 
-        assertEquals(listOf("id", "allowFemale", "blockVideos", "kidZone", "offset"), paged.map { it.first })
+        assertEquals(listOf("id", "onlyAcappella", "blockVideos", "kidZone", "offset"), paged.map { it.first })
         assertEquals("100", paged.toMap()["offset"])
     }
 
     @Test
     fun `facet see-all request carries id, facet, flags, and limit`() {
         val params = zemerGenreFacetParameters(
-            id = "acapella", facet = "albums", allowFemale = true, blockVideos = false, offset = 0, limit = 200,
+            id = "acapella", facet = "albums", onlyAcappella = true, blockVideos = false, offset = 0, limit = 200,
         )
-        assertEquals(listOf("id", "facet", "allowFemale", "blockVideos", "kidZone", "limit"), params.map { it.first })
+        assertEquals(listOf("id", "facet", "onlyAcappella", "blockVideos", "kidZone", "limit"), params.map { it.first })
         assertEquals("acapella", params.toMap()["id"])
         assertEquals("albums", params.toMap()["facet"])
         assertEquals("200", params.toMap()["limit"])
         assertNull(params.toMap()["offset"])
 
         val paged = zemerGenreFacetParameters(
-            id = "acapella", facet = "singles", allowFemale = true, blockVideos = false, offset = 200, limit = 200,
+            id = "acapella", facet = "singles", onlyAcappella = true, blockVideos = false, offset = 200, limit = 200,
         )
         assertEquals("200", paged.toMap()["offset"])
         assertEquals("singles", paged.toMap()["facet"])

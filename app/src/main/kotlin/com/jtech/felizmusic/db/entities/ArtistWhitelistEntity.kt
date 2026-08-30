@@ -14,7 +14,7 @@ data class ArtistWhitelistEntity(
     val addedAt: LocalDateTime = LocalDateTime.now(),
     val source: String = "firestore",
     val lastSyncedAt: LocalDateTime = LocalDateTime.now(),
-    val isFemale: Boolean = false,
+    val isAcappella: Boolean = false,
     val isChasid: Boolean = false,
     val isGenZ: Boolean = false,
     val isKids: Boolean = false,

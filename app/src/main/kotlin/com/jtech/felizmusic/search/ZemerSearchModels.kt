@@ -58,7 +58,7 @@ data class ZemerTrack(
     val title: String = "",
     val artist: String = "",
     // The artist's YouTube channel id. Present on `/home-rows` cards (so the app's one-per-artist
-    // dedup + female/israeli defence-in-depth can run); absent (null) on the search categories, where
+    // dedup + israeli defence-in-depth can run); absent (null) on the search categories, where
     // the artist arrives as a name only. Maps to `Artist.id` — null there keeps the prior behaviour.
     val artistId: String? = null,
     // Square album-art URL, when the server sends one on the track (so a song list shows real album art
@@ -153,9 +153,9 @@ data class ZemerPlaylist(
 /**
  * Wire model for `GET /home-rows` (search.horizonwireless.us) — the telemetry-ranked home tab rows, each ranked
  * by real distinct-device listening over a 30-day live window (contract: `handoff-docs/home-rows-plan.md`).
- * Every list is already whitelist-scoped and content-filtered (female / blocked-ids / kidZone) server-side
+ * Every list is already whitelist-scoped and content-filtered (onlyAcappella / blocked-ids / kidZone) server-side
  * for the flags sent, so the app does NOT re-run the artist-membership whitelist; it re-applies only the
- * client-owned checks as defence-in-depth (female/israeli via [ZemerTrack.artistId], `hideExplicit`).
+ * client-owned checks as defence-in-depth (israeli via [ZemerTrack.artistId], `hideExplicit`).
  *
  * [topCommunity] stays empty until the app tags `community:<playlistId>` playback; the lenient parser
  * ([zemerResponseJson]) tolerates the key being absent on older servers.

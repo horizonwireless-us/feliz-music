@@ -22,11 +22,11 @@ import java.util.WeakHashMap
  */
 
 // --- category docs: each implements [SearchDoc] (title/artistName/sortId drive ranking) and carries the
-// content-filter fields (femaleInvolved / isKidZone / isVideo) + the id set blockedDoc() matches. --------
+// content-filter fields (isAcappella / isKidZone / isVideo) + the id set blockedDoc() matches. --------
 
 internal class CatArtistDoc(
     val id: String, val name: String, val thumbnail: String?,
-    val femaleInvolved: Boolean, val isKidZone: Boolean,
+    val isAcappella: Boolean, val isKidZone: Boolean,
 ) : SearchDoc {
     override val title get() = name
     override val artistName get() = ""
@@ -36,7 +36,7 @@ internal class CatArtistDoc(
 internal class CatTrackDoc(
     val videoId: String, override val title: String, override val artistName: String,
     val explicit: Boolean, val durationSec: Int?, val isVideo: Boolean,
-    val isKidZone: Boolean, val femaleInvolved: Boolean,
+    val isKidZone: Boolean, val isAcappella: Boolean,
 ) : SearchDoc {
     override val sortId get() = videoId
 }
@@ -44,24 +44,24 @@ internal class CatTrackDoc(
 internal class CatAlbumDoc(
     val id: String, val playlistId: String?, override val title: String, override val artistName: String,
     val type: String, val year: Int?, val thumbnail: String?,
-    val femaleInvolved: Boolean, val isKidZone: Boolean,
+    val isAcappella: Boolean, val isKidZone: Boolean,
 ) : SearchDoc {
     override val sortId get() = id
 }
 
 internal class CatPlaylistDoc(
     val id: String, override val title: String, override val artistName: String, val thumbnail: String?,
-    val femaleInvolved: Boolean, val isKidZone: Boolean,
+    val isAcappella: Boolean, val isKidZone: Boolean,
 ) : SearchDoc {
     override val sortId get() = id
 }
 
 // Community playlists rank by TITLE only — artistName is "" on purpose (the "artist" is a random curator,
 // so matching/boosting on it would rank curator-name hits above title-begins-with hits). clsMask/fb mirror
-// store.mjs COMMUNITY_CONTENT_SQL; femaleOwned mirrors female-owned.mjs (author-name only offline).
+// store.mjs COMMUNITY_CONTENT_SQL. Acappella membership is per-member via clsMask (no curator ownership rule).
 internal class CatCommunityDoc(
     val id: String, override val title: String, val author: String, val thumbnail: String?,
-    val whitelisted: Int, val femaleOwned: Boolean, val clsMask: Int, val fb: Boolean,
+    val whitelisted: Int, val clsMask: Int, val fb: Boolean,
 ) : SearchDoc {
     override val artistName get() = ""
     override val sortId get() = id
@@ -73,18 +73,18 @@ internal class CatCommunityDoc(
 internal class CatPodcastDoc(
     val id: String, override val title: String, val author: String?, val channelId: String?,
     val thumbnail: String?, val episodeCountText: String?,
-    val femaleInvolved: Boolean, val isKidZone: Boolean,
+    val isAcappella: Boolean, val isKidZone: Boolean,
 ) : SearchDoc {
     override val artistName get() = author ?: ""
     override val sortId get() = id
 }
 
 // A podcast EPISODE folded into /search: title = episode title, artistName = show name. Episodes are audio
-// (isVideo irrelevant); female/KidZone inherited from the host channel + blocked.female on the videoId.
+// (isVideo irrelevant); acappella/KidZone inherited from the host channel; blocked ids are global-only.
 internal class CatEpisodeDoc(
     val videoId: String, override val title: String, val showId: String, val showName: String?,
     val channelId: String?, val thumbnail: String?, val durationSec: Int?, val publishedAt: String?,
-    val femaleInvolved: Boolean, val isKidZone: Boolean,
+    val isAcappella: Boolean, val isKidZone: Boolean,
 ) : SearchDoc {
     override val artistName get() = showName ?: ""
     override val sortId get() = videoId
@@ -96,7 +96,7 @@ internal class CatCommunityMember(
     val videoId: String,
     /** No corpus track AND no discovery artist — kept fail-open by the recompute. */
     val unknown: Boolean,
-    val female: Boolean,
+    val isAcappella: Boolean,
     val isKidZone: Boolean,
     val isVideo: Boolean,
 )
@@ -121,50 +121,49 @@ class BuiltCategories internal constructor(
     private val community: SubsetIndex<CatCommunityDoc>,
     private val podcasts: SubsetIndex<CatPodcastDoc>,
     private val episodes: SubsetIndex<CatEpisodeDoc>,
-    // female-involved videoIds (primary OR credited) UNION blocked.female — matches the server's `_female`
-    // set (api.mjs setFemaleSet), used by the community post-filter kept-count recompute.
+    // acappella videoIds (owning artist's isAcappella) — used by the community post-filter kept-count recompute.
     private val femaleVideoIds: Set<String>,
 ) {
 
-    fun search(q: String, k: Int, allowFemale: Boolean, blockVideos: Boolean, kidZone: Boolean): ZemerCategories {
+    fun search(q: String, k: Int, onlyAcappella: Boolean, blockVideos: Boolean, kidZone: Boolean): ZemerCategories {
         // pick = search n*4 -> filter allowed & !blocked -> slice n -> map (categories.mjs `pick`).
         fun <T : SearchDoc> pick(index: SubsetIndex<T>, n: Int, keep: (T) -> Boolean, blockIds: (T) -> List<String?>) =
             searchIndex(index, q, n * 4).asSequence().map { it.doc }
-                .filter { keep(it) && !blockedDoc(blockIds(it), allowFemale) }
+                .filter { keep(it) && !blockedDoc(blockIds(it), onlyAcappella) }
                 .take(n).toList()
 
         val artistRows = pick(artists, k,
-            { allowed(it.femaleInvolved, it.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone) },
+            { allowed(it.isAcappella, it.isKidZone, isVideo = false, onlyAcappella, blockVideos, kidZone) },
             { listOf(it.id) })
             .map { ZemerArtist(id = it.id, name = it.name, thumbnail = it.thumbnail) }
 
         fun trackRows(index: SubsetIndex<CatTrackDoc>) = pick(index, k,
-            { allowed(it.femaleInvolved, it.isKidZone, it.isVideo, allowFemale, blockVideos, kidZone) },
+            { allowed(it.isAcappella, it.isKidZone, it.isVideo, onlyAcappella, blockVideos, kidZone) },
             { listOf(it.videoId) })
             .map { ZemerTrack(videoId = it.videoId, title = it.title, artist = it.artistName, explicit = it.explicit, durationSec = it.durationSec) }
 
         fun albumRows(index: SubsetIndex<CatAlbumDoc>) = pick(index, k,
-            { allowed(it.femaleInvolved, it.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone) },
+            { allowed(it.isAcappella, it.isKidZone, isVideo = false, onlyAcappella, blockVideos, kidZone) },
             { listOf(it.id, it.playlistId) })
             .map { ZemerAlbum(id = it.id, playlistId = it.playlistId, title = it.title, artist = it.artistName, year = it.year, thumbnail = it.thumbnail) }
 
         val playlistRows = pick(playlists, k,
-            { allowed(it.femaleInvolved, it.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone) },
+            { allowed(it.isAcappella, it.isKidZone, isVideo = false, onlyAcappella, blockVideos, kidZone) },
             { listOf(it.id) })
             // Artist-owned playlists carry no `whitelisted` field on the wire => songCount null.
             .map { ZemerPlaylist(id = it.id, title = it.title, artist = it.artistName, thumbnail = it.thumbnail, songCount = null) }
 
         // Community: title-only ranking; communitySurvives() gate; then the api.mjs post-filter recompute of
         // whitelisted count + cover (no-op when no filter is active).
-        val filterActive = !allowFemale || kidZone || blockVideos
+        val filterActive = onlyAcappella || kidZone || blockVideos
         val communityRows = searchIndex(community, q, k * 4).asSequence().map { it.doc }
-            .filter { communitySurvives(it, allowFemale, blockVideos, kidZone) && !blockedDoc(listOf(it.id), allowFemale) }
+            .filter { communitySurvives(it, onlyAcappella, blockVideos, kidZone) && !blockedDoc(listOf(it.id), onlyAcappella) }
             .take(k).toList()
             .map { d ->
                 var songCount = d.whitelisted
                 var thumb = d.thumbnail
                 if (filterActive) {
-                    val kept = communityKept(d.id, allowFemale, blockVideos, kidZone)
+                    val kept = communityKept(d.id, onlyAcappella, blockVideos, kidZone)
                     songCount = kept.count
                     if (kept.cover != null) thumb = kept.cover
                 }
@@ -174,12 +173,12 @@ class BuiltCategories internal constructor(
         // Podcasts: shows + episodes folded into the same matcher (server reply 4). Both gated on the
         // channel-inherited female/KidZone flags (isVideo=false: episodes are audio) + the blocked shard.
         val podcastRows = pick(podcasts, k,
-            { allowed(it.femaleInvolved, it.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone) },
+            { allowed(it.isAcappella, it.isKidZone, isVideo = false, onlyAcappella = false, blockVideos, kidZone) },
             { listOf(it.id, it.channelId) })
             .map { ZemerPodcastShow(id = it.id, name = it.title, author = it.author, channelId = it.channelId, thumbnail = it.thumbnail, episodeCountText = it.episodeCountText) }
 
         val episodeRows = pick(episodes, k,
-            { allowed(it.femaleInvolved, it.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone) },
+            { allowed(it.isAcappella, it.isKidZone, isVideo = false, onlyAcappella = false, blockVideos, kidZone) },
             // A show blocked by id (per-show exception on a mixed channel) must also drop its
             // episodes here — every other offline podcast surface checks the show id, so matching
             // only the videoId let blocked shows' episodes leak through offline search.
@@ -201,32 +200,31 @@ class BuiltCategories internal constructor(
 
     // Content filters apply ONLY when explicitly requested (categories.mjs `allowed`) — delegates to
     // the shared [contentGatePasses] so the gate has ONE definition across the offline surfaces.
-    private fun allowed(femaleInvolved: Boolean, isKidZone: Boolean, isVideo: Boolean, allowFemale: Boolean, blockVideos: Boolean, kidZone: Boolean): Boolean =
-        contentGatePasses(femaleInvolved, isKidZone, isVideo, allowFemale, blockVideos, kidZone)
+    private fun allowed(isAcappella: Boolean, isKidZone: Boolean, isVideo: Boolean, onlyAcappella: Boolean, blockVideos: Boolean, kidZone: Boolean): Boolean =
+        contentGatePasses(isAcappella, isKidZone, isVideo, onlyAcappella, blockVideos, kidZone)
 
-    // Server-curated id overrides (categories.mjs `blockedDoc`): `global` dropped always, `female` when
-    // female is blocked. Matched against a result's videoId / id / playlistId.
-    private fun blockedDoc(ids: List<String?>, allowFemale: Boolean): Boolean {
+    // Server-curated id overrides (categories.mjs `blockedDoc`): `global` dropped always. matched against
+    // a result's videoId / id / playlistId.
+    private fun blockedDoc(ids: List<String?>, onlyAcappella: Boolean): Boolean {
         for (id in ids) {
-            if (id != null && (blocked.global.contains(id) || (!allowFemale && blocked.female.contains(id)))) return true
+            if (id != null && blocked.global.contains(id)) return true
         }
         return false
     }
 
     // A community playlist survives iff >=1 whitelisted member survives the active filter (categories.mjs
     // `communitySurvives`), using the packed [CatCommunityDoc.clsMask]. Fail-open on no class data.
-    private fun communitySurvives(p: CatCommunityDoc, allowFemale: Boolean, blockVideos: Boolean, kidZone: Boolean): Boolean {
-        if (allowFemale && !kidZone && !blockVideos) return true // no filter active
-        if (p.femaleOwned && !allowFemale) return false // a female artist's OWN playlist -> hide
+    private fun communitySurvives(p: CatCommunityDoc, onlyAcappella: Boolean, blockVideos: Boolean, kidZone: Boolean): Boolean {
+        if (!onlyAcappella && !kidZone && !blockVideos) return true // no filter active
         if (p.fb) return true // has an unknown member -> always kept
         val mask = p.clsMask
         if (mask == 0) return true // no data -> don't hide
         for (c in 0 until 8) {
             if (mask and (1 shl c) == 0) continue
-            val female = (c shr 2) and 1
+            val acappella = (c shr 2) and 1
             val video = (c shr 1) and 1
             val kidzone = c and 1
-            val excluded = (female == 1 && !allowFemale) || (video == 1 && blockVideos) || (kidzone == 0 && kidZone)
+            val excluded = (acappella == 0 && onlyAcappella) || (video == 1 && blockVideos) || (kidzone == 0 && kidZone)
             if (!excluded) return true
         }
         return false
@@ -236,7 +234,7 @@ class BuiltCategories internal constructor(
 
     // The api.mjs `communityKeptCounts` recompute: post-filter surviving-member count + first-surviving
     // member's cover, over the build-time member snapshots (no corpus reference — see the class KDoc).
-    private fun communityKept(id: String, allowFemale: Boolean, blockVideos: Boolean, kidZone: Boolean): KeptCount {
+    private fun communityKept(id: String, onlyAcappella: Boolean, blockVideos: Boolean, kidZone: Boolean): KeptCount {
         var count = 0
         var coverPos = Int.MAX_VALUE
         var coverVid: String? = null
@@ -244,8 +242,8 @@ class BuiltCategories internal constructor(
             val keep = if (m.unknown) {
                 true // unknown member -> kept (fail-open)
             } else {
-                val female = m.female || femaleVideoIds.contains(m.videoId)
-                contentGatePasses(female, m.isKidZone, m.isVideo, allowFemale, blockVideos, kidZone)
+                val isAcappella = m.isAcappella || femaleVideoIds.contains(m.videoId)
+                contentGatePasses(isAcappella, m.isKidZone, m.isVideo, onlyAcappella, blockVideos, kidZone)
             }
             if (keep) {
                 count++
@@ -264,9 +262,8 @@ class BuiltCategories internal constructor(
          * [female] is the shared matcher (build once via [buildFemaleMatcher]).
          */
         fun build(corpus: SubsetCorpus, female: FemaleMatcher): BuiltCategories {
-            // Enrich tracks: femaleInvolved = primary female OR a credited female — the shared
-            // [collectFemaleVideoIds] scan (SubsetFemale), the same one the read layer caches. Split
-            // songs / videos.
+            // Enrich tracks: isAcappella = the owning artist's isAcappella flag (no featured-credit
+            // inference). The matcher parameter is retained for signature compatibility only.
             val involvedVideoIds = collectFemaleVideoIds(corpus, female)
             val trackDocs = ArrayList<CatTrackDoc>(corpus.tracks.size)
             for (t in corpus.tracks) {
@@ -275,41 +272,39 @@ class BuiltCategories internal constructor(
                     CatTrackDoc(
                         videoId = t.videoId, title = t.title, artistName = artist?.name ?: "",
                         explicit = t.explicit, durationSec = t.durationSec, isVideo = t.isVideo,
-                        isKidZone = artist?.isKidZone ?: false, femaleInvolved = t.videoId in involvedVideoIds,
+                        isKidZone = artist?.isKidZone ?: false, isAcappella = t.videoId in involvedVideoIds,
                     ),
                 )
             }
-            // `_female` = female-involved videoIds UNION the curated `female` blocked ids (api.mjs setFemaleSet).
-            val femaleVideoIds = HashSet(involvedVideoIds).apply { addAll(corpus.blocked.female) }
+            val femaleVideoIds = involvedVideoIds
             val songDocs = trackDocs.filter { !it.isVideo }
             val videoDocs = trackDocs.filter { it.isVideo }
 
             val albumDocs = corpus.albums.map { a ->
                 val artist = corpus.artistsById[a.artistId]
                 val artistName = artist?.name ?: ""
-                val primaryFemale = artist?.isFemale ?: false
                 CatAlbumDoc(
                     id = a.id, playlistId = a.playlistId, title = a.title, artistName = artistName,
                     type = a.type, year = a.year, thumbnail = a.thumbnail,
-                    femaleInvolved = primaryFemale || isFemaleInvolved(a.title, artistName, primaryFemale, female),
+                    isAcappella = artist?.isAcappella ?: false,
                     isKidZone = artist?.isKidZone ?: false,
                 )
             }
 
             val artistDocs = corpus.artists.map { a ->
-                CatArtistDoc(id = a.id, name = a.name, thumbnail = a.thumbnail, femaleInvolved = a.isFemale, isKidZone = a.isKidZone)
+                CatArtistDoc(id = a.id, name = a.name, thumbnail = a.thumbnail, isAcappella = a.isAcappella, isKidZone = a.isKidZone)
             }
 
             val playlistDocs = corpus.artistPlaylists.map { p ->
                 val artist = corpus.artistsById[p.artistId]
                 CatPlaylistDoc(
                     id = p.id, title = p.title, artistName = artist?.name ?: "", thumbnail = p.thumbnail,
-                    femaleInvolved = artist?.isFemale ?: false, isKidZone = artist?.isKidZone ?: false,
+                    isAcappella = artist?.isAcappella ?: false, isKidZone = artist?.isKidZone ?: false,
                 )
             }
 
-            // Community docs: clsMask/fb computed from members (store.mjs COMMUNITY_CONTENT_SQL); femaleOwned
-            // from the author name (SubsetFemale — the female-owned id set is not shipped on device).
+            // Community docs: clsMask/fb computed from members (store.mjs COMMUNITY_CONTENT_SQL). No
+            // curator ownership rule — Acappella membership is per-member via clsMask.
             val communityDocs = corpus.community.map { c ->
                 val members = corpus.communityTracksByPlaylist[c.id].orEmpty()
                 var clsMask = 0
@@ -324,16 +319,16 @@ class BuiltCategories internal constructor(
                     } else {
                         val a = t?.let { corpus.artistsById[it.artistId] }
                         val am = m.artistId?.let { corpus.artistsById[it] }
-                        val female2 = (a?.isFemale ?: false) || (am?.isFemale ?: false) || femaleVideoIds.contains(m.videoId)
+                        val acappella2 = (a?.isAcappella ?: false) || (am?.isAcappella ?: false) || femaleVideoIds.contains(m.videoId)
                         val video = t?.isVideo ?: false
                         val kidzone = (a?.isKidZone ?: false) || (am?.isKidZone ?: false)
-                        val cls = (if (female2) 4 else 0) + (if (video) 2 else 0) + (if (kidzone) 1 else 0)
+                        val cls = (if (acappella2) 4 else 0) + (if (video) 2 else 0) + (if (kidzone) 1 else 0)
                         clsMask = clsMask or (1 shl cls)
                     }
                 }
                 CatCommunityDoc(
                     id = c.id, title = c.title, author = c.author ?: "", thumbnail = ytThumb(coverVid),
-                    whitelisted = c.whitelisted, femaleOwned = isCommunityFemaleOwned(c.author, female),
+                    whitelisted = c.whitelisted,
                     clsMask = clsMask, fb = fb,
                 )
             }
@@ -349,7 +344,7 @@ class BuiltCategories internal constructor(
                         pos = m.pos,
                         videoId = m.videoId,
                         unknown = t == null && m.artistId == null,
-                        female = a?.isFemale ?: am?.isFemale ?: false,
+                        isAcappella = a?.isAcappella ?: am?.isAcappella ?: false,
                         isKidZone = a?.isKidZone ?: am?.isKidZone ?: false,
                         isVideo = t?.isVideo ?: false,
                     )
@@ -363,7 +358,7 @@ class BuiltCategories internal constructor(
                 CatPodcastDoc(
                     id = s.id, title = s.name, author = s.author, channelId = s.channelId,
                     thumbnail = s.thumbnail, episodeCountText = s.episodeCountText,
-                    femaleInvolved = ch?.isFemale ?: false, isKidZone = ch?.isKidZone ?: false,
+                    isAcappella = ch?.isAcappella ?: false, isKidZone = ch?.isKidZone ?: false,
                 )
             }
             val episodeDocs = corpus.podcastEpisodes.mapNotNull { e ->
@@ -372,7 +367,7 @@ class BuiltCategories internal constructor(
                 CatEpisodeDoc(
                     videoId = e.videoId, title = e.title, showId = e.showId, showName = s.name,
                     channelId = s.channelId, thumbnail = e.thumbnail, durationSec = e.durationSec, publishedAt = e.publishedAt,
-                    femaleInvolved = ch?.isFemale ?: false, isKidZone = ch?.isKidZone ?: false,
+                    isAcappella = ch?.isAcappella ?: false, isKidZone = ch?.isKidZone ?: false,
                 )
             }
 
@@ -408,7 +403,7 @@ private fun categoriesFor(corpus: SubsetCorpus, female: FemaleMatcher): BuiltCat
  * returns the same [ZemerSearchResponse] the live server would for the same query + flags over the same
  * corpus build. The category indexes are built once per corpus and cached.
  *
- * @param allowFemale false drops female-involved results (server default is true / open).
+ * @param onlyAcappella false drops female-involved results (server default is true / open).
  * @param blockVideos true drops the videos category and video tracks.
  * @param kidZone true keeps only KidZone artists.
  */
@@ -417,7 +412,7 @@ fun offlineSearch(
     female: FemaleMatcher,
     q: String,
     k: Int,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerSearchResponse {
@@ -425,7 +420,7 @@ fun offlineSearch(
     val kClamped = k.coerceIn(1, 200)
     if (query.isBlank()) return ZemerSearchResponse(q = query, count = 0, categories = ZemerCategories())
     val cats = categoriesFor(corpus, female)
-    val categories = cats.search(query, kClamped, allowFemale, blockVideos, kidZone)
+    val categories = cats.search(query, kClamped, onlyAcappella, blockVideos, kidZone)
     val count = categories.artists.size + categories.songs.size + categories.albums.size +
         categories.singles.size + categories.videos.size + categories.playlists.size + categories.community.size +
         categories.podcasts.size + categories.episodes.size

@@ -56,7 +56,7 @@ object NightlyUpdates {
 
     /** Raw build.gradle.kts at [sha] — the authoritative version of the nightly at that commit. */
     fun buildGradleUrl(sha: String): String =
-        "https://raw.githubusercontent.com/horizonwireless/feliz-music/$sha/android-client/app/build.gradle.kts"
+        "https://raw.githubusercontent.com/horizonwireless-us/feliz-music/$sha/android-client/app/build.gradle.kts"
 
     data class BuildVersion(val versionCode: Int, val versionName: String)
 

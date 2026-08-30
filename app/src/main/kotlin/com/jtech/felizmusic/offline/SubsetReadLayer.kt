@@ -74,13 +74,13 @@ internal fun ytThumb(vid: String?): String? =
  * silently leaks — invisible online, where the server filters separately.
  */
 internal fun contentGatePasses(
-    femaleInvolved: Boolean,
+    isAcappella: Boolean,
     isKidZone: Boolean,
     isVideo: Boolean,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
-): Boolean = (allowFemale || !femaleInvolved) && (!kidZone || isKidZone) && (!blockVideos || !isVideo)
+): Boolean = (!onlyAcappella || isAcappella) && (!kidZone || isKidZone) && (!blockVideos || !isVideo)
 
 // The generated-cover URL the server links from a curated card (api.mjs `zemerCoverUrl`). Curated ids
 // are slugs (alnum + hyphen), so `encodeURIComponent` is a no-op. Emitted ABSOLUTE (resolveZemerUrl):
@@ -92,7 +92,7 @@ private fun zemerCoverUrl(id: String): String = resolveZemerUrl("/zemer-playlist
 /**
  * `_female` for the read filters — the female-involved videoId set (primary OR credited female, over the
  * whole corpus) UNION the curated `female` blocked ids, exactly as `api.mjs setFemaleSet` builds it
- * (`collectFemaleVideoIds` ∪ `blocked.female`). Cached per corpus so the curated-list read (which asks
+ * (`collectFemaleVideoIds`). Cached per corpus so the curated-list read (which asks
  * every playlist for its tracks) rebuilds it once, not per playlist. `WeakHashMap` so a discarded corpus
  * is collectable, mirroring [SubsetCategories]'s index cache.
  */
@@ -101,7 +101,7 @@ private val femaleVideoIdsCache = WeakHashMap<SubsetCorpus, Set<String>>()
 private fun femaleVideoIdsFor(corpus: SubsetCorpus, female: FemaleMatcher): Set<String> =
     synchronized(femaleVideoIdsCache) {
         femaleVideoIdsCache.getOrPut(corpus) {
-            HashSet(collectFemaleVideoIds(corpus, female)).apply { addAll(corpus.blocked.female) }
+            collectFemaleVideoIds(corpus, female)
         }
     }
 
@@ -133,9 +133,9 @@ private fun tracksOnAlbumFor(corpus: SubsetCorpus): Set<String> =
 
 // Server-curated id override (api.mjs `idDropped`): `global` ids dropped always, `female` ids only when
 // female is blocked. Matches a result's videoId / id / playlistId / channelId / browseId.
-private fun SubsetCorpus.idDropped(id: String?, allowFemale: Boolean): Boolean =
+private fun SubsetCorpus.idDropped(id: String?, onlyAcappella: Boolean): Boolean =
     id != null && id.isNotBlank() &&
-        (blocked.global.contains(id) || (!allowFemale && blocked.female.contains(id)))
+        blocked.global.contains(id)
 
 // ── /album ───────────────────────────────────────────────────────────────────────────────────────
 
@@ -149,23 +149,23 @@ fun offlineAlbum(
     corpus: SubsetCorpus,
     female: FemaleMatcher,
     id: String,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerAlbumResponse? {
-    if (corpus.idDropped(id, allowFemale)) return null
+    if (corpus.idDropped(id, onlyAcappella)) return null
     val al = corpus.albumsById[id] ?: return null
     val albumArtist = corpus.artistsById[al.artistId]
     // Gate the whole album by its artist (same predicate as artistDetail).
-    if (!contentGatePasses(albumArtist?.isFemale == true, albumArtist?.isKidZone == true, isVideo = false, allowFemale, blockVideos, kidZone)) return null
+    if (!contentGatePasses(albumArtist?.isAcappella == true, albumArtist?.isKidZone == true, isVideo = false, onlyAcappella, blockVideos, kidZone)) return null
 
     val femaleIds = femaleVideoIdsFor(corpus, female)
     val tracks = corpus.albumTracksByAlbum[id].orEmpty().mapNotNull { at ->
         val t = corpus.tracksById[at.videoId] ?: return@mapNotNull null
         val trackArtist = corpus.artistsById[t.artistId]
         val femInv = femaleIds.contains(t.videoId)
-        val pass = contentGatePasses(femInv, trackArtist?.isKidZone == true, t.isVideo, allowFemale, blockVideos, kidZone)
-        if (!pass || corpus.idDropped(t.videoId, allowFemale)) return@mapNotNull null
+        val pass = contentGatePasses(femInv, trackArtist?.isKidZone == true, t.isVideo, onlyAcappella, blockVideos, kidZone)
+        if (!pass || corpus.idDropped(t.videoId, onlyAcappella)) return@mapNotNull null
         ZemerTrack(
             videoId = t.videoId,
             title = t.title,
@@ -208,20 +208,20 @@ fun offlineArtist(
     corpus: SubsetCorpus,
     female: FemaleMatcher,
     id: String,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerArtistResponse? {
-    if (corpus.idDropped(id, allowFemale)) return null
+    if (corpus.idDropped(id, onlyAcappella)) return null
     val a = corpus.artistsById[id] ?: return null
     // Content gate (defense-in-depth, same predicate /search uses): treat a gated artist as not-found.
-    if (!contentGatePasses(a.isFemale, a.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone)) return null
+    if (!contentGatePasses(a.isAcappella, a.isKidZone, isVideo = false, onlyAcappella, blockVideos, kidZone)) return null
 
     val femaleIds = femaleVideoIdsFor(corpus, female)
     val tracks = corpus.tracks.asSequence()
         .filter { it.artistId == id }
-        .filter { allowFemale || !femaleIds.contains(it.videoId) }
-        .filter { !corpus.idDropped(it.videoId, allowFemale) }
+        .filter { onlyAcappella || !femaleIds.contains(it.videoId) }
+        .filter { !corpus.idDropped(it.videoId, onlyAcappella) }
         .sortedWith(compareBy<SubTrack> { it.playCount == null }.thenByDescending { it.playCount ?: 0L })
         .toList()
     fun song(t: SubTrack) = ZemerTrack(
@@ -233,7 +233,7 @@ fun offlineArtist(
     )
 
     val albums = corpus.albums
-        .filter { it.artistId == id && !corpus.idDropped(it.id, allowFemale) }
+        .filter { it.artistId == id && !corpus.idDropped(it.id, onlyAcappella) }
         .sortedWith(compareBy<SubAlbum> { it.year == null }.thenByDescending { it.year ?: 0 }.thenBy { it.id })
     fun album(x: SubAlbum) = ZemerAlbum(
         id = x.id,
@@ -251,7 +251,7 @@ fun offlineArtist(
         albums = albums.filter { it.type != "single" }.map(::album),
         singles = albums.filter { it.type == "single" }.map(::album),
         playlists = corpus.artistPlaylists
-            .filter { it.artistId == id && !corpus.idDropped(it.id, allowFemale) }
+            .filter { it.artistId == id && !corpus.idDropped(it.id, onlyAcappella) }
             .map { ZemerPlaylist(id = it.id, title = it.title, artist = a.name, thumbnail = it.thumbnail, songCount = null) },
     )
 }
@@ -267,7 +267,7 @@ fun offlineArtist(
 fun offlineHomeRows(
     corpus: SubsetCorpus,
     female: FemaleMatcher,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerHomeRowsResponse {
@@ -279,8 +279,8 @@ fun offlineHomeRows(
     val topAlbums = ranked("top-albums").mapNotNull { corpus.albumsById[it.refId] }
         .filter { al ->
             val artist = corpus.artistsById[al.artistId]
-            contentGatePasses(artist?.isFemale == true, artist?.isKidZone == true, isVideo = false, allowFemale, blockVideos, kidZone) &&
-                !corpus.idDropped(al.id, allowFemale) && !corpus.idDropped(al.artistId, allowFemale)
+            contentGatePasses(artist?.isAcappella == true, artist?.isKidZone == true, isVideo = false, onlyAcappella, blockVideos, kidZone) &&
+                !corpus.idDropped(al.id, onlyAcappella) && !corpus.idDropped(al.artistId, onlyAcappella)
         }
         .map { ZemerAlbum(id = it.id, playlistId = it.playlistId, title = it.title, artist = corpus.artistsById[it.artistId]?.name ?: "", artistId = it.artistId, year = it.year, thumbnail = it.thumbnail) }
 
@@ -291,23 +291,23 @@ fun offlineHomeRows(
         .filter { it.isVideo } // vidRow WHERE t.isVideo=1
         .filter { t ->
             val artist = corpus.artistsById[t.artistId]
-            val femInv = (artist?.isFemale == true) || femaleIds.contains(t.videoId)
+            val femInv = (artist?.isAcappella == true) || femaleIds.contains(t.videoId)
             // isVideo = false: the whole row is already emptied under blockVideos above.
-            contentGatePasses(femInv, artist?.isKidZone == true, isVideo = false, allowFemale, blockVideos, kidZone) &&
-                !corpus.idDropped(t.videoId, allowFemale) && !corpus.idDropped(t.artistId, allowFemale)
+            contentGatePasses(femInv, artist?.isKidZone == true, isVideo = false, onlyAcappella, blockVideos, kidZone) &&
+                !corpus.idDropped(t.videoId, onlyAcappella) && !corpus.idDropped(t.artistId, onlyAcappella)
         }
         .map { ZemerTrack(videoId = it.videoId, title = it.title, artist = corpus.artistsById[it.artistId]?.name ?: "", artistId = it.artistId, explicit = it.explicit, durationSec = it.durationSec) }
 
     // top-artists → ZemerArtist. Gate by the artist's own flags + id-override; no _female cross-credit.
     val topArtists = ranked("top-artists").mapNotNull { corpus.artistsById[it.refId] }
-        .filter { contentGatePasses(it.isFemale, it.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone) && !corpus.idDropped(it.id, allowFemale) }
+        .filter { contentGatePasses(it.isAcappella, it.isKidZone, isVideo = false, onlyAcappella, blockVideos, kidZone) && !corpus.idDropped(it.id, onlyAcappella) }
         .map { ZemerArtist(id = it.id, name = it.name, thumbnail = it.thumbnail) }
 
     return ZemerHomeRowsResponse(
         topAlbums = topAlbums,
         topVideos = topVideos,
         topArtists = topArtists,
-        topCommunity = topCommunity(corpus, female, allowFemale, blockVideos, kidZone),
+        topCommunity = topCommunity(corpus, female, onlyAcappella, blockVideos, kidZone),
     )
 }
 
@@ -322,7 +322,7 @@ private val ENGAGED_LISTS = listOf("auto-top-50", "auto-trending", "auto-favorit
 private fun topCommunity(
     corpus: SubsetCorpus,
     female: FemaleMatcher,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): List<ZemerPlaylist> {
@@ -344,16 +344,15 @@ private fun topCommunity(
         .take(HOME_COMMUNITY_POOL)
         .toList()
 
-    val filterActive = !allowFemale || kidZone || blockVideos
+    val filterActive = onlyAcappella || kidZone || blockVideos
     val out = ArrayList<ZemerPlaylist>()
     for (c in pool) {
         if (out.size >= HOME_COMMUNITY_N) break
-        if (corpus.idDropped(c.id, allowFemale)) continue
-        if (!allowFemale && isCommunityFemaleOwned(c.author, female)) continue // gotcha #7 rule 2
+        if (corpus.idDropped(c.id, onlyAcappella)) continue
         var songCount = c.whitelisted
         var cover = ytThumb(corpus.communityTracksByPlaylist[c.id].orEmpty().firstOrNull()?.videoId)
         if (filterActive) {
-            val kept = communityKept(corpus, femaleVideoIdsFor(corpus, female), c.id, allowFemale, blockVideos, kidZone)
+            val kept = communityKept(corpus, femaleVideoIdsFor(corpus, female), c.id, onlyAcappella, blockVideos, kidZone)
             if (kept.count <= 0) continue
             songCount = kept.count
             cover = kept.cover
@@ -371,7 +370,7 @@ private fun communityKept(
     corpus: SubsetCorpus,
     femaleIds: Set<String>,
     id: String,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): KeptCount {
@@ -385,10 +384,10 @@ private fun communityKept(
         val keep = if (t == null && m.artistId == null) {
             true // unknown member → kept (fail-open)
         } else {
-            val female = (a?.isFemale ?: am?.isFemale ?: false) || femaleIds.contains(m.videoId)
+            val female = (a?.isAcappella ?: am?.isAcappella ?: false) || femaleIds.contains(m.videoId)
             val isKidZone = a?.isKidZone ?: am?.isKidZone ?: false
             val isVideo = t?.isVideo ?: false
-            contentGatePasses(female, isKidZone, isVideo, allowFemale, blockVideos, kidZone)
+            contentGatePasses(female, isKidZone, isVideo, onlyAcappella, blockVideos, kidZone)
         }
         if (keep) {
             count++
@@ -408,15 +407,15 @@ private fun communityKept(
 fun offlineCuratedPlaylists(
     corpus: SubsetCorpus,
     female: FemaleMatcher,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerCuratedPlaylistsResponse {
     val femaleIds = femaleVideoIdsFor(corpus, female)
     val playlists = corpus.zemerPlaylists.sortedWith(compareBy<SubZemerPlaylist> { it.pos }.thenBy { it.id })
-        .filter { !corpus.idDropped(it.id, allowFemale) }
+        .filter { !corpus.idDropped(it.id, onlyAcappella) }
         .mapNotNull { p ->
-            val tracks = zemerPlaylistTracks(corpus, femaleIds, p, allowFemale, blockVideos, kidZone)
+            val tracks = zemerPlaylistTracks(corpus, femaleIds, p, onlyAcappella, blockVideos, kidZone)
             if (tracks.isEmpty()) null else zemerCard(p.id, p.title, tracks)
         }
     return ZemerCuratedPlaylistsResponse(playlists = playlists)
@@ -433,17 +432,17 @@ fun offlineCuratedPlaylist(
     corpus: SubsetCorpus,
     female: FemaleMatcher,
     id: String,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerCuratedPlaylistResponse? {
-    if (corpus.idDropped(id, allowFemale)) return null
+    if (corpus.idDropped(id, onlyAcappella)) return null
     val p = corpus.zemerPlaylists.firstOrNull { it.id == id } ?: return null
     val femaleIds = femaleVideoIdsFor(corpus, female)
-    var tracks = zemerPlaylistTracks(corpus, femaleIds, p, allowFemale, blockVideos, kidZone)
+    var tracks = zemerPlaylistTracks(corpus, femaleIds, p, onlyAcappella, blockVideos, kidZone)
     if (tracks.isEmpty()) return null
 
-    val albums = curatedAlbums(corpus, p, tracks, allowFemale)
+    val albums = curatedAlbums(corpus, p, tracks, onlyAcappella)
 
     if (id.startsWith("auto-")) {
         // rank = 1-based position on the RAW stored chart (a filtered row index is NOT the chart
@@ -484,7 +483,7 @@ private fun zemerPlaylistTracks(
     corpus: SubsetCorpus,
     femaleIds: Set<String>,
     p: SubZemerPlaylist,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): List<ZemerTrack> {
@@ -520,9 +519,9 @@ private fun zemerPlaylistTracks(
         if (!seen.add(videoId)) continue // first position wins
         val t = corpus.tracksById[videoId] ?: continue // JOIN track — only corpus tracks serve
         val artist = corpus.artistsById[t.artistId]
-        if (corpus.idDropped(videoId, allowFemale)) continue
+        if (corpus.idDropped(videoId, onlyAcappella)) continue
         val femInv = femaleIds.contains(videoId)
-        if (!contentGatePasses(femInv, artist?.isKidZone == true, t.isVideo, allowFemale, blockVideos, kidZone)) continue
+        if (!contentGatePasses(femInv, artist?.isKidZone == true, t.isVideo, onlyAcappella, blockVideos, kidZone)) continue
         out.add(
             ZemerTrack(
                 videoId = t.videoId,
@@ -551,13 +550,13 @@ private fun zemerPlaylistTracks(
  */
 private fun SubsetCorpus.podcastShowPasses(
     show: SubPodcastShow,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): Boolean {
     val ch = show.channelId?.let { podcastChannelsById[it] }
-    if (idDropped(show.id, allowFemale) || idDropped(show.channelId, allowFemale)) return false
-    return contentGatePasses(ch?.isFemale == true, ch?.isKidZone == true, isVideo = false, allowFemale, blockVideos, kidZone)
+    if (idDropped(show.id, onlyAcappella) || idDropped(show.channelId, onlyAcappella)) return false
+    return contentGatePasses(ch?.isAcappella == true, ch?.isKidZone == true, isVideo = false, onlyAcappella = false, blockVideos, kidZone)
 }
 
 // newest-first: publishedAt desc (ISO dates sort lexicographically), NULLs last, then videoId asc.
@@ -591,14 +590,14 @@ fun offlinePodcast(
     corpus: SubsetCorpus,
     id: String,
     offset: Int,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerPodcastResponse? {
     val show = corpus.podcastsById[id] ?: return null
-    if (!corpus.podcastShowPasses(show, allowFemale, blockVideos, kidZone)) return null
+    if (!corpus.podcastShowPasses(show, onlyAcappella, blockVideos, kidZone)) return null
     val episodes = if (offset > 0) emptyList() else corpus.podcastEpisodesByShow[id].orEmpty()
-        .filter { !corpus.idDropped(it.videoId, allowFemale) }
+        .filter { !corpus.idDropped(it.videoId, onlyAcappella) }
         .sortedWith(EPISODE_RECENCY)
         .map { it.toWire(show) }
     return ZemerPodcastResponse(
@@ -626,19 +625,19 @@ private const val PODCAST_CHANNEL_EPISODES = 50
 fun offlinePodcastChannel(
     corpus: SubsetCorpus,
     id: String,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerPodcastChannelResponse? {
     val ch = corpus.podcastChannelsById[id] ?: return null
-    if (corpus.idDropped(id, allowFemale)) return null
-    if (!contentGatePasses(ch.isFemale, ch.isKidZone, isVideo = false, allowFemale, blockVideos, kidZone)) return null
+    if (corpus.idDropped(id, onlyAcappella)) return null
+    if (!contentGatePasses(ch.isAcappella, ch.isKidZone, isVideo = false, onlyAcappella = false, blockVideos, kidZone)) return null
 
     val shows = corpus.podcastsByChannel[id].orEmpty()
-        .filter { corpus.podcastShowPasses(it, allowFemale, blockVideos, kidZone) }
+        .filter { corpus.podcastShowPasses(it, onlyAcappella, blockVideos, kidZone) }
     val showIds = shows.mapTo(HashSet()) { it.id }
     val episodes = corpus.podcastEpisodes.asSequence()
-        .filter { it.showId in showIds && !corpus.idDropped(it.videoId, allowFemale) }
+        .filter { it.showId in showIds && !corpus.idDropped(it.videoId, onlyAcappella) }
         .sortedWith(EPISODE_RECENCY)
         .take(PODCAST_CHANNEL_EPISODES)
         .map { it.toWire(corpus.podcastsById[it.showId]) }
@@ -658,15 +657,15 @@ fun offlinePodcastChannel(
 fun offlinePodcastsNewEpisodes(
     corpus: SubsetCorpus,
     k: Int,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerNewEpisodesResponse {
     val episodes = corpus.podcastEpisodes.asSequence()
         .filter { ep ->
             val show = corpus.podcastsById[ep.showId] ?: return@filter false
-            corpus.podcastShowPasses(show, allowFemale, blockVideos, kidZone) &&
-                !corpus.idDropped(ep.videoId, allowFemale)
+            corpus.podcastShowPasses(show, onlyAcappella, blockVideos, kidZone) &&
+                !corpus.idDropped(ep.videoId, onlyAcappella)
         }
         .sortedWith(EPISODE_RECENCY)
         .take(k.coerceAtLeast(0))
@@ -686,14 +685,14 @@ private fun podcastGenreTitle(slug: String): String = slug.replaceFirstChar { it
  */
 fun offlinePodcastGenres(
     corpus: SubsetCorpus,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerPodcastGenresResponse {
     val counts = HashMap<String, Int>()
     for (show in corpus.podcasts) {
         if (show.genres.isEmpty()) continue
-        if (!corpus.podcastShowPasses(show, allowFemale, blockVideos, kidZone)) continue
+        if (!corpus.podcastShowPasses(show, onlyAcappella, blockVideos, kidZone)) continue
         for (slug in show.genres) counts[slug] = (counts[slug] ?: 0) + 1
     }
     val genres = counts.entries
@@ -709,12 +708,12 @@ fun offlinePodcastGenres(
 fun offlinePodcastGenre(
     corpus: SubsetCorpus,
     slug: String,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
     blockVideos: Boolean,
     kidZone: Boolean,
 ): ZemerPodcastGenrePageResponse? {
     val shows = corpus.podcasts.filter {
-        slug in it.genres && corpus.podcastShowPasses(it, allowFemale, blockVideos, kidZone)
+        slug in it.genres && corpus.podcastShowPasses(it, onlyAcappella, blockVideos, kidZone)
     }
     if (shows.isEmpty()) return null
     return ZemerPodcastGenrePageResponse(
@@ -730,7 +729,7 @@ private fun curatedAlbums(
     corpus: SubsetCorpus,
     p: SubZemerPlaylist,
     tracks: List<ZemerTrack>,
-    allowFemale: Boolean,
+    onlyAcappella: Boolean,
 ): List<ZemerAlbum> {
     val kept = tracks.mapTo(HashSet()) { it.videoId }
 
@@ -746,7 +745,7 @@ private fun curatedAlbums(
     }
 
     return albumOrder.mapNotNull { al ->
-        if (corpus.idDropped(al.id, allowFemale)) return@mapNotNull null
+        if (corpus.idDropped(al.id, onlyAcappella)) return@mapNotNull null
         val members = corpus.albumTracksByAlbum[al.id].orEmpty().count { kept.contains(it.videoId) }
         if (members == 0) return@mapNotNull null
         ZemerAlbum(

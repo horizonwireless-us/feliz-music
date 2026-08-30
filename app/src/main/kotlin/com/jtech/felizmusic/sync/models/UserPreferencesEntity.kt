@@ -64,10 +64,9 @@ data class UserPreferencesEntity(
                 userId = userId,
                 contentFilters = com.jtech.felizmusic.sync.models.DeviceContentFilters(
                 enableContentFilters = config.filtersEnabled,
-                allowFemaleSingers = config.allowFemaleSingers,
+                acappellaOnly = config.acappellaOnly,
                 blockVideos = config.blockVideos,
-                blockPodcasts = config.blockPodcasts,
-                femalePasscodeHash = config.femalePasscodeHash
+                blockPodcasts = config.blockPodcasts
             ),
                 currentDevice = currentDeviceMetadata,
                 allDevices = updatedDevices,
@@ -84,11 +83,10 @@ data class UserPreferencesEntity(
     fun toConfig(): com.jtech.felizmusic.utils.ContentFilterConfig {
         return com.jtech.felizmusic.utils.ContentFilterConfig(
             filtersEnabled = contentFilters.enableContentFilters,
-            allowFemaleSingers = contentFilters.allowFemaleSingers,
+            acappellaOnly = contentFilters.acappellaOnly,
             blockVideos = contentFilters.blockVideos,
             // Unset podcast field couples to blockVideos (see DeviceContentFilters.toConfig).
             blockPodcasts = contentFilters.blockPodcasts ?: contentFilters.blockVideos,
-            femalePasscodeHash = contentFilters.femalePasscodeHash,
             isSynced = true
         )
     }

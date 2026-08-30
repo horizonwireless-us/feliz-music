@@ -85,7 +85,7 @@ data class SubArtist(
     val id: String,
     val name: String,
     val thumbnail: String?,
-    val isFemale: Boolean,
+    val isAcappella: Boolean,
     val isChasid: Boolean,
     val isKidZone: Boolean,
 )
@@ -152,16 +152,16 @@ data class SubZemerPlaylist(val id: String, val title: String, val pos: Int, val
 /** kind = "track" | "album"; refId = videoId or album browseId. */
 data class SubZemerItem(val playlistId: String, val kind: String, val refId: String, val pos: Int)
 
-data class SubBlocked(val global: Set<String>, val female: Set<String>)
+data class SubBlocked(val global: Set<String>)
 
 // --- podcasts (shard rows pinned to build-subset.mjs; see [SubsetDecoder]) ---
 
-/** A host podcast channel (UC…) — the browse-grid row. `flags` bit0=female, bit1=kidZone, bit2=verified. */
+/** A host podcast channel (UC…) — the browse-grid row. `flags` bit0=isAcappella, bit1=kidZone, bit2=verified. */
 data class SubPodcastChannel(
     val id: String,
     val name: String,
     val thumbnail: String?,
-    val isFemale: Boolean,
+    val isAcappella: Boolean,
     val isKidZone: Boolean,
     val isVerified: Boolean,
     val showCount: Int,

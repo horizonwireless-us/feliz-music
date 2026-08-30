@@ -76,7 +76,7 @@ class HomeViewModel @Inject constructor(
         val name: String,
         val isAmerican: Boolean?,
         val isIsraeli: Boolean?,
-        val isFemale: Boolean?,
+        val isAcappella: Boolean?,
         val isFamous: Boolean?,
         // Read only by the ranked kids gate (isBlockedRanked): a kids-only artist stays out of the adult
         // Home. Distinct from the whitelist's isKidZone (which drives the KidZone tab), and from isDJ/isGroup
@@ -368,7 +368,7 @@ class HomeViewModel @Inject constructor(
                         name = name,
                         isAmerican = doc.getBoolean("isAmerican"),
                         isIsraeli = IsraeliArtistRegistry.isIsraeli(id),
-                        isFemale = doc.getBoolean("isFemale"),
+                        isAcappella = doc.getBoolean("isAcappella"),
                         isFamous = doc.getBoolean("isFamous"),
                         isKids = doc.getBoolean("isKids"),
                     )
@@ -383,7 +383,7 @@ class HomeViewModel @Inject constructor(
             name = name ?: artistName ?: resolvedId,
             isAmerican = isAmerican,
             isIsraeli = IsraeliArtistRegistry.isIsraeli(resolvedId),
-            isFemale = isFemale,
+            isAcappella = isAcappella,
             isFamous = isFamous,
             isKids = isKids,
         )
@@ -393,7 +393,7 @@ class HomeViewModel @Inject constructor(
         return try {
             json.split("||").mapNotNull { entry ->
                 val parts = entry.split("|")
-                // 7 fields (id|name|isAmerican|isIsraeli|isFemale|isFamous|isKids). An original 9-field
+                // 7 fields (id|name|isAmerican|isIsraeli|isAcappella|isFamous|isKids). An original 9-field
                 // cache still parses — parts[6] is isKids in that layout too, and the trailing isDJ/isGroup
                 // are ignored — so upgrading from the released format needs no forced refetch.
                 if (parts.size < 7) return@mapNotNull null
@@ -402,7 +402,7 @@ class HomeViewModel @Inject constructor(
                     name = parts[1],
                     isAmerican = parts[2].toBooleanStrictOrNull(),
                     isIsraeli = parts[3].toBooleanStrictOrNull(),
-                    isFemale = parts[4].toBooleanStrictOrNull(),
+                    isAcappella = parts[4].toBooleanStrictOrNull(),
                     isFamous = parts[5].toBooleanStrictOrNull(),
                     isKids = parts[6].toBooleanStrictOrNull(),
                 )
@@ -416,7 +416,7 @@ class HomeViewModel @Inject constructor(
     private suspend fun saveArtistProfilesToCache(profiles: List<HomeArtistProfile>) {
         try {
             val json = profiles.joinToString("||") { p ->
-                "${p.id}|${p.name}|${p.isAmerican}|${p.isIsraeli}|${p.isFemale}|${p.isFamous}|${p.isKids}"
+                "${p.id}|${p.name}|${p.isAmerican}|${p.isIsraeli}|${p.isAcappella}|${p.isFamous}|${p.isKids}"
             }
             context.dataStore.edit { prefs ->
                 prefs[ArtistProfilesCacheKey] = json
@@ -508,7 +508,7 @@ class HomeViewModel @Inject constructor(
             }
 
             val filters = ContentFilterState.state.value
-            val allowFemale = filters.allowFemaleSingers
+            val acappellaOnly = filters.acappellaOnly
             val recentArtistIds = context.dataStore
                 .getSuspend(HomeRecentArtistsKey, "")
                 .orEmpty()
@@ -589,7 +589,7 @@ class HomeViewModel @Inject constructor(
             fun isBlockedArtist(ids: List<String>): Boolean {
                 if (ids.any { IsraeliArtistRegistry.isIsraeli(it) }) return true
                 val profiles = ids.mapNotNull { profileById[it] }
-                if (!allowFemale && profiles.any { it.isFemale == true }) return true
+                if (acappellaOnly && profiles.any { it.isAcappella != true }) return true
                 if (profiles.any { it.isAmerican != true }) return true
                 if (profiles.any { it.isFamous != true }) return true
                 return false
@@ -600,19 +600,19 @@ class HomeViewModel @Inject constructor(
             fun ArtistItem.isAllowed(): Boolean = !isBlockedArtist(listOfNotNull(this.id))
             fun PlaylistItem.isAllowed(): Boolean = !isBlockedArtist(listOfNotNull(this.author?.id))
 
-            // Content gate for the telemetry-ranked rows: female (when blocked) + Israeli + kids-only, NOT the
+            // Content gate for the telemetry-ranked rows: onlyAcappella + Israeli + kids-only, NOT the
             // famous/american quality proxy that `isBlockedArtist` applies. Real listening reach is a
             // better signal than the proxy, and applying it here cut the ranked rows to near-empty
             // (handoff REPLY 3). Blocked-ids already dropped in the mapper; this is defence-in-depth over
-            // the server's own female/blocked filtering, so it needs each card's real artist channel id.
+            // the server's own onlyAcappella/blocked filtering, so it needs each card's real artist channel id.
             // The rule itself lives in the shared RankedContentGate (VideoHomeRowsViewModel applies the
             // same one to the /video-home-rows rows); only the profile lookup is this ViewModel's.
             fun isBlockedRanked(ids: List<String>): Boolean = RankedContentGate.isBlockedRanked(
                 ids = ids,
-                allowFemale = allowFemale,
+                acappellaOnly = acappellaOnly,
                 flagsOf = { id ->
                     profileById[id]?.let {
-                        RankedContentGate.Flags(isFemale = it.isFemale == true, isKids = it.isKids == true)
+                        RankedContentGate.Flags(isAcappella = it.isAcappella == true, isKids = it.isKids == true)
                     }
                 },
             )
@@ -621,7 +621,7 @@ class HomeViewModel @Inject constructor(
             fun AlbumItem.isAllowedRanked(): Boolean = !isBlockedRanked(this.artists?.mapNotNull { it.id } ?: emptyList())
             fun ArtistItem.isAllowedRanked(): Boolean = !isBlockedRanked(listOfNotNull(this.id))
             // Community playlists carry no curator channel id, so this is effectively a pass-through: the
-            // server already applies the female-owner hide + member survival + blocked-ids, and the mapper
+            // server already applies member survival + blocked-ids, and the mapper
             // re-drops blocked ids. Defined for symmetry with the other ranked rows.
             fun PlaylistItem.isAllowedRanked(): Boolean = !isBlockedRanked(listOfNotNull(this.author?.id))
 
@@ -713,7 +713,7 @@ class HomeViewModel @Inject constructor(
             // order (the See-all contract), so shuffle ONCE here and use it for both the row and the snapshot.
             val displayedQuick = finalQuick.shuffled(Random(System.nanoTime()))
             // Featured rows come ONLY from the Zemer /home-rows endpoint — the ranked-row content gate
-            // (female/israeli/blocked-ids, not the famous/american proxy) then the one-per-artist rotation.
+            // (acappella/israeli/blocked-ids, not the famous/american proxy) then the one-per-artist rotation.
             // No InnerTube: an empty pool (only possible if search.horizonwireless.us is unreachable) just hides the
             // row rather than falling back to a scrape. All featured content is therefore Zemer-sourced.
             val albumsPool = homeRows?.albums.orEmpty().filter { it.isAllowedRanked() }

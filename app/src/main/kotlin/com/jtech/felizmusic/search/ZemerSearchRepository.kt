@@ -147,7 +147,7 @@ class ZemerSearchRepository @Inject constructor(
      * filter-aware [ZemerPlaylistHeader.thumbnail]. Not cached — each open is a single fetch.
      */
     suspend fun playlist(id: String, options: ZemerSearchOptions): ZemerPlaylistPage {
-        val response = client.playlist(id, options.allowFemale, options.blockVideos)
+        val response = client.playlist(id, options.onlyAcappella, options.blockVideos)
         val songs = response.toSongItems(options.hideExplicit)
         val header = PlaylistItem(
             id = id,
@@ -173,8 +173,8 @@ class ZemerSearchRepository @Inject constructor(
      */
     suspend fun album(browseId: String, playlistId: String?, options: ZemerSearchOptions): AlbumPage? =
         serverOrOffline(
-            server = { client.album(browseId, options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.album(browseId, options.allowFemale, options.blockVideos) },
+            server = { client.album(browseId, options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.album(browseId, options.onlyAcappella, options.blockVideos) },
         )?.toAlbumPage(playlistId)
 
     /**
@@ -187,8 +187,8 @@ class ZemerSearchRepository @Inject constructor(
     suspend fun homeRows(options: ZemerSearchOptions): ZemerResultMapper.HomeRows =
         ZemerResultMapper.homeRows(
             serverOrOffline(
-                server = { client.homeRows(options.allowFemale, options.blockVideos) },
-                offline = { offlineReads.homeRows(options.allowFemale, options.blockVideos) },
+                server = { client.homeRows(options.onlyAcappella, options.blockVideos) },
+                offline = { offlineReads.homeRows(options.onlyAcappella, options.blockVideos) },
             ),
             formatSongCount,
         )
@@ -203,8 +203,8 @@ class ZemerSearchRepository @Inject constructor(
      */
     suspend fun artist(id: String, options: ZemerSearchOptions): ArtistPage? =
         serverOrOffline(
-            server = { client.artist(id, options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.artist(id, options.allowFemale, options.blockVideos) },
+            server = { client.artist(id, options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.artist(id, options.onlyAcappella, options.blockVideos) },
         )?.toArtistPage(options.hideExplicit, formatSongCount)
 
     // --- Podcasts. Server-first with the on-device snapshot fallback (server reply 4: the subset now
@@ -215,8 +215,8 @@ class ZemerSearchRepository @Inject constructor(
     /** A SHOW page (header + one episode page). Null when the show is unknown / filtered out (404). */
     suspend fun podcast(id: String, offset: Int, options: ZemerSearchOptions): PodcastPage? =
         serverOrOffline(
-            server = { client.podcast(id, offset, options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.podcast(id, offset, options.allowFemale, options.blockVideos) },
+            server = { client.podcast(id, offset, options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.podcast(id, offset, options.onlyAcappella, options.blockVideos) },
         )?.toPodcastPage()
 
     /**
@@ -226,8 +226,8 @@ class ZemerSearchRepository @Inject constructor(
      */
     suspend fun podcastChannel(id: String, options: ZemerSearchOptions): ZemerResultMapper.PodcastChannelPage? =
         serverOrOffline(
-            server = { client.podcastChannel(id, options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.podcastChannel(id, options.allowFemale, options.blockVideos) },
+            server = { client.podcastChannel(id, options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.podcastChannel(id, options.onlyAcappella, options.blockVideos) },
         )?.toPodcastChannelPage()
 
     /**
@@ -241,7 +241,7 @@ class ZemerSearchRepository @Inject constructor(
         offset: Int,
         options: ZemerSearchOptions,
     ): Pair<List<EpisodeItem>, Int?>? =
-        client.podcastChannel(id, options.allowFemale, options.blockVideos, offset)
+        client.podcastChannel(id, options.onlyAcappella, options.blockVideos, offset)
             ?.let { it.toChannelEpisodeItems() to it.nextOffset }
 
     /**
@@ -250,17 +250,17 @@ class ZemerSearchRepository @Inject constructor(
      * failure. The server applies an alphabetical fallback for `topPodcasts` while telemetry is thin.
      */
     suspend fun podcastHomeRows(options: ZemerSearchOptions): ZemerResultMapper.PodcastHomeRows =
-        ZemerResultMapper.podcastHomeRows(client.podcastHomeRows(options.allowFemale, options.blockVideos))
+        ZemerResultMapper.podcastHomeRows(client.podcastHomeRows(options.onlyAcappella, options.blockVideos))
 
     /** The Videos tab's ranked rows. Live-only like [podcastHomeRows]; throws on failure (fail-soft VM). */
     suspend fun videoHomeRows(options: ZemerSearchOptions): ZemerResultMapper.VideoHomeRows =
-        ZemerResultMapper.videoHomeRows(client.videoHomeRows(options.allowFemale, options.blockVideos))
+        ZemerResultMapper.videoHomeRows(client.videoHomeRows(options.onlyAcappella, options.blockVideos))
 
     /** Latest episodes across all whitelisted shows (Library New Episodes), newest-first. */
     suspend fun podcastsNewEpisodes(k: Int, options: ZemerSearchOptions): List<EpisodeItem> =
         serverOrOffline(
-            server = { client.podcastsNewEpisodes(k, options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.podcastsNewEpisodes(k, options.allowFemale, options.blockVideos) },
+            server = { client.podcastsNewEpisodes(k, options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.podcastsNewEpisodes(k, options.onlyAcappella, options.blockVideos) },
         ).toEpisodeItems()
 
     /**
@@ -269,14 +269,14 @@ class ZemerSearchRepository @Inject constructor(
      * adjacent catalog is opened repeatedly, and the data changes on curation timescales.
      */
     suspend fun podcastGenres(options: ZemerSearchOptions): PodcastGenreCatalog {
-        val key = "${options.allowFemale}|${options.blockVideos}"
+        val key = "${options.onlyAcappella}|${options.blockVideos}"
         val now = System.currentTimeMillis()
         podcastGenresCache?.let { (cachedKey, at, value) ->
             if (cachedKey == key && now - at < GENRES_CACHE_TTL_MS) return value
         }
         val response = serverOrOffline(
-            server = { client.podcastGenres(options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.podcastGenres(options.allowFemale, options.blockVideos) },
+            server = { client.podcastGenres(options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.podcastGenres(options.onlyAcappella, options.blockVideos) },
         )
         return PodcastGenreCatalog(
             kinds = response.kinds,
@@ -293,8 +293,8 @@ class ZemerSearchRepository @Inject constructor(
      */
     suspend fun podcastGenre(id: String, options: ZemerSearchOptions): ZemerResultMapper.PodcastGenrePage? =
         serverOrOffline(
-            server = { client.podcastGenre(id, options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.podcastGenre(id, options.allowFemale, options.blockVideos) },
+            server = { client.podcastGenre(id, options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.podcastGenre(id, options.onlyAcappella, options.blockVideos) },
         )?.toPodcastGenrePage()
 
     /**
@@ -303,7 +303,7 @@ class ZemerSearchRepository @Inject constructor(
      * live continuation; tracks are whitelist-pure + blocked-ids filtered server-side.
      */
     suspend fun radio(kind: String, seed: String?, options: ZemerSearchOptions): ZemerRadioPage =
-        client.radio(kind, seed, options.allowFemale, options.blockVideos).toRadioPage()
+        client.radio(kind, seed, options.onlyAcappella, options.blockVideos).toRadioPage()
 
     /** The next radio page for an opaque [continuation] token (the seed + flags ride inside the token). */
     suspend fun radioContinuation(continuation: String): ZemerRadioPage =
@@ -345,8 +345,8 @@ class ZemerSearchRepository @Inject constructor(
      */
     suspend fun curatedPlaylists(options: ZemerSearchOptions): List<ZemerCuratedPlaylist> =
         serverOrOffline(
-            server = { client.curatedPlaylists(options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.curatedPlaylists(options.allowFemale, options.blockVideos) },
+            server = { client.curatedPlaylists(options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.curatedPlaylists(options.onlyAcappella, options.blockVideos) },
         )
             .playlists
             .filter { it.id.isNotBlank() }
@@ -358,8 +358,8 @@ class ZemerSearchRepository @Inject constructor(
      */
     suspend fun curatedPlaylist(id: String, options: ZemerSearchOptions): ZemerCuratedPlaylistPage? =
         serverOrOffline(
-            server = { client.curatedPlaylist(id, options.allowFemale, options.blockVideos) },
-            offline = { offlineReads.curatedPlaylist(id, options.allowFemale, options.blockVideos) },
+            server = { client.curatedPlaylist(id, options.onlyAcappella, options.blockVideos) },
+            offline = { offlineReads.curatedPlaylist(id, options.onlyAcappella, options.blockVideos) },
         )?.let { response ->
             ZemerCuratedPlaylistPage(
                 playlist = response.playlist,
@@ -393,12 +393,12 @@ class ZemerSearchRepository @Inject constructor(
      * ([musicGenres]) — the raw kinds are needed to group the catalog.
      */
     suspend fun genres(options: ZemerSearchOptions): List<ZemerGenreSummary> {
-        val key = "${options.allowFemale}|${options.blockVideos}"
+        val key = "${options.onlyAcappella}|${options.blockVideos}"
         val now = System.currentTimeMillis()
         genresCache?.let { (cachedKey, at, value) ->
             if (cachedKey == key && now - at < GENRES_CACHE_TTL_MS) return value
         }
-        return client.genres(options.allowFemale, options.blockVideos)
+        return client.genres(options.onlyAcappella, options.blockVideos)
             .genres
             .filter { it.id.isNotBlank() }
             .distinctBy { it.id }
@@ -415,7 +415,7 @@ class ZemerSearchRepository @Inject constructor(
      * gracefully, mirroring [curatedPlaylist]. Live-only and uncached, like [genres].
      */
     suspend fun genre(id: String, options: ZemerSearchOptions, offset: Int = 0): ZemerResultMapper.ZemerGenrePage? =
-        client.genre(id, options.allowFemale, options.blockVideos, offset)?.toGenrePage(options.hideExplicit)
+        client.genre(id, options.onlyAcappella, options.blockVideos, offset)?.toGenrePage(options.hideExplicit)
 
     /**
      * One page of a genre's full Albums or Singles list (`facet` see-all). Null = 404 (gone/empty).
@@ -427,7 +427,7 @@ class ZemerSearchRepository @Inject constructor(
         options: ZemerSearchOptions,
         offset: Int = 0,
     ): ZemerResultMapper.ZemerGenreFacetPage? =
-        client.genreFacet(id, facet, options.allowFemale, options.blockVideos, offset)?.toAlbumFacetPage()
+        client.genreFacet(id, facet, options.onlyAcappella, options.blockVideos, offset)?.toAlbumFacetPage()
 
     private val cacheMutex = Mutex()
     private val cache = object : LinkedHashMap<String, ZemerSearchResponse>(16, 0.75f, true) {
@@ -443,7 +443,7 @@ class ZemerSearchRepository @Inject constructor(
 
     private suspend fun fetch(query: String, options: ZemerSearchOptions, k: Int): ZemerSearchResponse {
         val trimmed = query.trim()
-        val key = "$k|${options.allowFemale}|${options.blockVideos}|$trimmed"
+        val key = "$k|${options.onlyAcappella}|${options.blockVideos}|$trimmed"
         cacheMutex.withLock { cache[key] }?.let { return it }
         // Only a SERVER response is memoized. Caching an offline-fallback response would keep serving
         // the reduced snapshot result for the rest of the process after the server recovers: the
@@ -451,10 +451,10 @@ class ZemerSearchRepository @Inject constructor(
         // only runs from the error-state Retry path — which a "successfully" cached result never shows.
         return serverOrOffline(
             server = {
-                client.search(trimmed, options.allowFemale, options.blockVideos, k)
+                client.search(trimmed, options.onlyAcappella, options.blockVideos, k)
                     .also { response -> cacheMutex.withLock { cache[key] = response } }
             },
-            offline = { offlineReads.search(trimmed, k, options.allowFemale, options.blockVideos) },
+            offline = { offlineReads.search(trimmed, k, options.onlyAcappella, options.blockVideos) },
         )
     }
 

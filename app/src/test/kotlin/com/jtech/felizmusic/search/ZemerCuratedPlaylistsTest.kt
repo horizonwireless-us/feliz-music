@@ -22,22 +22,22 @@ class ZemerCuratedPlaylistsTest {
 
     @Test
     fun `list request always carries all three content flags, even when all-open`() {
-        val params = zemerCuratedPlaylistsParameters(id = null, allowFemale = true, blockVideos = false)
+        val params = zemerCuratedPlaylistsParameters(id = null, onlyAcappella = true, blockVideos = false)
 
-        assertEquals(listOf("allowFemale", "blockVideos", "kidZone"), params.map { it.first })
-        assertEquals("1", params.toMap()["allowFemale"])
+        assertEquals(listOf("onlyAcappella", "blockVideos", "kidZone"), params.map { it.first })
+        assertEquals("1", params.toMap()["onlyAcappella"])
         assertEquals("0", params.toMap()["blockVideos"])
         assertEquals("0", params.toMap()["kidZone"])
     }
 
     @Test
     fun `detail request carries the id plus the same three flags`() {
-        val params = zemerCuratedPlaylistsParameters(id = "shabbos", allowFemale = false, blockVideos = true)
+        val params = zemerCuratedPlaylistsParameters(id = "shabbos", onlyAcappella = false, blockVideos = true)
 
-        assertEquals(listOf("id", "allowFemale", "blockVideos", "kidZone"), params.map { it.first })
+        assertEquals(listOf("id", "onlyAcappella", "blockVideos", "kidZone"), params.map { it.first })
         assertEquals("shabbos", params.toMap()["id"])
         // The crux: a restricted user's flags are explicit, never left to the server default.
-        assertEquals("0", params.toMap()["allowFemale"])
+        assertEquals("0", params.toMap()["onlyAcappella"])
         assertEquals("1", params.toMap()["blockVideos"])
     }
 
@@ -103,23 +103,23 @@ class ZemerCuratedPlaylistsTest {
 
     @Test
     fun `stale-flag guard - a response only publishes while its options match the live config`() {
-        val options = ZemerSearchOptions(allowFemale = true, blockVideos = false, hideExplicit = false)
+        val options = ZemerSearchOptions(onlyAcappella = true, blockVideos = false, hideExplicit = false)
 
         assertEquals(
             true,
-            zemerOptionsStillCurrent(options, ContentFilterConfig(allowFemaleSingers = true, blockVideos = false)),
+            zemerOptionsStillCurrent(options, ContentFilterConfig(acappellaOnly = true, blockVideos = false)),
         )
         // The crux: a fetch issued before a flag flip must be dropped, not shown.
         assertEquals(
             false,
-            zemerOptionsStillCurrent(options, ContentFilterConfig(allowFemaleSingers = false, blockVideos = false)),
+            zemerOptionsStillCurrent(options, ContentFilterConfig(acappellaOnly = false, blockVideos = false)),
         )
         // blockVideos is deliberately NOT compared: ZemerSearchOptions.blockVideos is a pinned
         // constant (false), so a live blockVideos=true config must still publish - comparing it would
         // permanently drop every response for a "Block videos" user (the regression this guards).
         assertEquals(
             true,
-            zemerOptionsStillCurrent(options, ContentFilterConfig(allowFemaleSingers = true, blockVideos = true)),
+            zemerOptionsStillCurrent(options, ContentFilterConfig(acappellaOnly = true, blockVideos = true)),
         )
     }
 

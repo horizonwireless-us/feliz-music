@@ -184,8 +184,13 @@ val PodcastViewTypeKey = stringPreferencesKey("podcastViewType")
 val PlaylistEditLockKey = booleanPreferencesKey("playlistEditLock")
 val QuickPicksKey = stringPreferencesKey("discover")
 val QueueEditLockKey = booleanPreferencesKey("queueEditLock")
-val AllowFemaleSingersKey = booleanPreferencesKey("allowFemaleSingers")
-val FemalePasscodeHashKey = stringPreferencesKey("femalePasscodeHash")
+// Canonical Acappella filter. true = restrict music to acappella artists; false/absent = unrestricted.
+// Podcasts are never affected by this flag.
+val AcappellaOnlyKey = booleanPreferencesKey("acappellaOnly")
+// Legacy female/passcode keys. Read once at startup and after preference sync ONLY to delete them
+// idempotently. Never map them to the Acappella setting.
+val LegacyAllowFemaleSingersKey = booleanPreferencesKey("allowFemaleSingers")
+val LegacyFemalePasscodeHashKey = stringPreferencesKey("femalePasscodeHash")
 val AllowChasidishKey = booleanPreferencesKey("allowChasidish")
 val BlockVideosKey = booleanPreferencesKey("blockVideos")
 val BlockPodcastsKey = booleanPreferencesKey("blockPodcasts")

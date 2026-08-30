@@ -378,7 +378,7 @@ val MIGRATION_1_2 =
 val MIGRATION_26_27 =
     object : Migration(26, 27) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            db.execSQL("ALTER TABLE artist_whitelist ADD COLUMN isFemale INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE artist_whitelist ADD COLUMN isAcappella INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE artist_whitelist ADD COLUMN isChasid INTEGER NOT NULL DEFAULT 0")
             db.execSQL("ALTER TABLE artist_whitelist ADD COLUMN isGenZ INTEGER NOT NULL DEFAULT 0")
         }
@@ -433,7 +433,6 @@ val MIGRATION_33_34 =
                     `channelId` TEXT NOT NULL PRIMARY KEY,
                     `name` TEXT NOT NULL,
                     `thumbnailUrl` TEXT,
-                    `isFemale` INTEGER NOT NULL DEFAULT 0,
                     `isKidZone` INTEGER NOT NULL DEFAULT 0,
                     `isVerified` INTEGER NOT NULL DEFAULT 0,
                     `showCount` INTEGER NOT NULL DEFAULT 0,

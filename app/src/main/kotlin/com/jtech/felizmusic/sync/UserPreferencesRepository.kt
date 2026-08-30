@@ -21,11 +21,12 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.jtech.felizmusic.constants.EnableContentFiltersKey
-import com.jtech.felizmusic.constants.AllowFemaleSingersKey
+import com.jtech.felizmusic.constants.AcappellaOnlyKey
+import com.jtech.felizmusic.constants.LegacyAllowFemaleSingersKey
+import com.jtech.felizmusic.constants.LegacyFemalePasscodeHashKey
 import com.jtech.felizmusic.constants.AllowChasidishKey
 import com.jtech.felizmusic.constants.BlockVideosKey
 import com.jtech.felizmusic.constants.BlockPodcastsKey
-import com.jtech.felizmusic.constants.FemalePasscodeHashKey
 import com.jtech.felizmusic.constants.ContentFiltersAutoRestoredKey
 import com.jtech.felizmusic.constants.ContentFiltersRestoredEmailKey
 import com.jtech.felizmusic.constants.ContentFiltersLockedKey
@@ -45,10 +46,9 @@ import javax.inject.Singleton
 private fun ContentFilterConfig.toDeviceContentFilters(): DeviceContentFilters {
     return DeviceContentFilters(
         enableContentFilters = filtersEnabled,
-        allowFemaleSingers = allowFemaleSingers,
+        acappellaOnly = acappellaOnly,
         blockVideos = blockVideos,
-        blockPodcasts = blockPodcasts,
-        femalePasscodeHash = femalePasscodeHash
+        blockPodcasts = blockPodcasts
     )
 }
 
@@ -458,10 +458,9 @@ class UserPreferencesRepository @Inject constructor(
             val prefs = mainDataStore.data.first()
             val currentConfig = ContentFilterConfig(
                 filtersEnabled = prefs[EnableContentFiltersKey] ?: true,
-                allowFemaleSingers = prefs[AllowFemaleSingersKey] ?: false,
+                acappellaOnly = prefs[AcappellaOnlyKey] ?: false,
                 blockVideos = prefs[BlockVideosKey] ?: false,
-                blockPodcasts = prefs[BlockPodcastsKey] ?: false,
-                femalePasscodeHash = prefs[FemalePasscodeHashKey]
+                blockPodcasts = prefs[BlockPodcastsKey] ?: false
             )
 
             // Check if device preferences exist
@@ -565,13 +564,24 @@ class UserPreferencesRepository @Inject constructor(
     suspend fun saveToDataStore(config: ContentFilterConfig) {
         mainDataStore.edit { preferences ->
             preferences[EnableContentFiltersKey] = config.filtersEnabled
-            preferences[AllowFemaleSingersKey] = config.allowFemaleSingers
+            preferences[AcappellaOnlyKey] = config.acappellaOnly
             preferences[BlockVideosKey] = config.blockVideos
             preferences[BlockPodcastsKey] = config.blockPodcasts
-            config.femalePasscodeHash?.let { hash ->
-                preferences[FemalePasscodeHashKey] = hash
-            }
+            // Legacy female/passcode keys are deleted idempotently; never mapped to Acappella.
+            preferences.remove(LegacyAllowFemaleSingersKey)
+            preferences.remove(LegacyFemalePasscodeHashKey)
             // Note: AllowChasidishKey is excluded since chasidish is now for recommendations only
+        }
+    }
+
+    /**
+     * Delete legacy female/passcode DataStore keys idempotently. Called at startup and after every
+     * preference sync. The values are intentionally discarded — never mapped to acappellaOnly.
+     */
+    suspend fun deleteLegacyFemaleKeys() {
+        mainDataStore.edit { preferences ->
+            preferences.remove(LegacyAllowFemaleSingersKey)
+            preferences.remove(LegacyFemalePasscodeHashKey)
         }
     }
 

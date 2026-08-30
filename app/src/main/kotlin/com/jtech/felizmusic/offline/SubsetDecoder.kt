@@ -45,7 +45,7 @@ object SubsetDecoder {
             val podcastChannels = ArrayList<SubPodcastChannel>()
             val podcasts = ArrayList<SubPodcastShow>()
             val podcastEpisodes = ArrayList<SubPodcastEpisode>()
-            var blocked = SubBlocked(emptySet(), emptySet())
+            var blocked = SubBlocked(emptySet())
 
             for (shard in manifest.shards) {
                 val bytes = store.shardBytes(shard.name) ?: return null
@@ -100,7 +100,7 @@ object SubsetDecoder {
             id = r[0].asString(),
             name = r[1].asString(),
             thumbnail = r[2].asStringOrNull(),
-            isFemale = flags and 1 != 0,
+            isAcappella = flags and 1 != 0,
             isChasid = flags and 2 != 0,
             isKidZone = flags and 4 != 0,
         )
@@ -183,14 +183,14 @@ object SubsetDecoder {
     }
 
     // Podcast channel row: [ id(UC), name, thumbnail, flags, showCount, episodeCount ].
-    // flags is a bitmask: bit0=isFemale, bit1=isKidZone, bit2=isVerified.
+    // flags is a bitmask: bit0=isAcappella, bit1=isKidZone, bit2=isVerified.
     fun decodePodcastChannels(text: String): List<SubPodcastChannel> = rows(text).map { r ->
         val flags = r[3].asInt()
         SubPodcastChannel(
             id = r[0].asString(),
             name = r[1].asString(),
             thumbnail = r[2].asStringOrNull(),
-            isFemale = flags and 1 != 0,
+            isAcappella = flags and 1 != 0,
             isKidZone = flags and 2 != 0,
             isVerified = flags and 4 != 0,
             showCount = r[4].asIntOrNull() ?: 0,
@@ -228,7 +228,7 @@ object SubsetDecoder {
     fun decodeBlocked(text: String): SubBlocked {
         val o = json.parseToJsonElement(text).jsonObject
         fun ids(key: String) = (o[key] as? JsonArray).orEmpty().mapTo(HashSet()) { it.asString() }
-        return SubBlocked(global = ids("global"), female = ids("female"))
+        return SubBlocked(global = ids("global"))
     }
 
     // --- helpers ---

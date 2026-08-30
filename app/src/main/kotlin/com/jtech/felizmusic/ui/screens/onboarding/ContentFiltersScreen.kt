@@ -41,7 +41,7 @@ import com.jtech.felizmusic.ui.component.SyncAccountWarning
 import com.jtech.felizmusic.ui.component.DefaultDialog
 import androidx.datastore.core.DataStore
 import com.jtech.felizmusic.constants.EnableContentFiltersKey
-import com.jtech.felizmusic.constants.AllowFemaleSingersKey
+import com.jtech.felizmusic.constants.AcappellaOnlyKey
 import com.jtech.felizmusic.constants.BlockVideosKey
 import com.jtech.felizmusic.constants.BlockPodcastsKey
 import com.jtech.felizmusic.utils.rememberPreference
@@ -74,7 +74,7 @@ internal fun ContentFiltersScreen(
 
     // Content filter states (using rememberPreference to auto-save to DataStore)
     val (enableContentFilters, onEnableContentFiltersChange) = rememberPreference(key = EnableContentFiltersKey, defaultValue = true)
-    val (allowFemaleSingers, onAllowFemaleSingersChange) = rememberPreference(key = AllowFemaleSingersKey, defaultValue = false)
+    val (acappellaOnly, onAcappellaOnlyChange) = rememberPreference(key = AcappellaOnlyKey, defaultValue = false)
     val (blockVideos, onBlockVideosChange) = rememberPreference(key = BlockVideosKey, defaultValue = false)
     val (blockPodcasts, onBlockPodcastsChange) = rememberPreference(key = BlockPodcastsKey, defaultValue = false)
     var signInDelaySeconds by remember { mutableStateOf(0) }
@@ -221,7 +221,7 @@ internal fun ContentFiltersScreen(
                             )
 
                             Text(
-                                text = stringResource(R.string.onboarding_restored_female, stringResource(if (config?.allowFemaleSingers == true) R.string.allowed else R.string.blocked)),
+                                text = stringResource(R.string.onboarding_restored_acappella, stringResource(if (config?.acappellaOnly == true) R.string.allowed else R.string.blocked)),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -254,12 +254,12 @@ internal fun ContentFiltersScreen(
                     subtitle = stringResource(R.string.onboarding_filters_subtitle),
                 )
 
-                // Allow Female Singers toggle
+                // Acappella only toggle
                 FilterOptionCard(
-                    title = stringResource(R.string.onboarding_allow_female_title),
-                    description = stringResource(R.string.onboarding_allow_female_desc),
-                    isEnabled = allowFemaleSingers,
-                    onToggle = { onAllowFemaleSingersChange(it) },
+                    title = stringResource(R.string.onboarding_acappella_only_title),
+                    description = stringResource(R.string.onboarding_acappella_only_desc),
+                    isEnabled = acappellaOnly,
+                    onToggle = { onAcappellaOnlyChange(it) },
                     icon = R.drawable.person
                 )
 

@@ -11,32 +11,32 @@ import org.junit.Test
  */
 class ZemerSearchParametersTest {
 
-    private fun paramMap(allowFemale: Boolean, blockVideos: Boolean) =
-        zemerSearchParameters("query", allowFemale, blockVideos, k = 8).toMap()
+    private fun paramMap(onlyAcappella: Boolean, blockVideos: Boolean) =
+        zemerSearchParameters("query", onlyAcappella, blockVideos, k = 8).toMap()
 
     @Test
     fun `both content flags are sent even when both are false`() {
-        val params = paramMap(allowFemale = false, blockVideos = false)
+        val params = paramMap(onlyAcappella = false, blockVideos = false)
 
         // The crux: a false flag is still present (as "0"), not omitted.
-        assertEquals("0", params["allowFemale"])
+        assertEquals("0", params["onlyAcappella"])
         assertEquals("0", params["blockVideos"])
     }
 
     @Test
     fun `flags encode true as 1 and false as 0`() {
-        assertEquals("1", paramMap(allowFemale = true, blockVideos = false)["allowFemale"])
-        assertEquals("0", paramMap(allowFemale = false, blockVideos = true)["allowFemale"])
-        assertEquals("1", paramMap(allowFemale = false, blockVideos = true)["blockVideos"])
-        assertEquals("0", paramMap(allowFemale = true, blockVideos = false)["blockVideos"])
+        assertEquals("1", paramMap(onlyAcappella = true, blockVideos = false)["onlyAcappella"])
+        assertEquals("0", paramMap(onlyAcappella = false, blockVideos = true)["onlyAcappella"])
+        assertEquals("1", paramMap(onlyAcappella = false, blockVideos = true)["blockVideos"])
+        assertEquals("0", paramMap(onlyAcappella = true, blockVideos = false)["blockVideos"])
     }
 
     @Test
     fun `every request carries q, both flags, and k - and nothing is dropped`() {
-        val params = zemerSearchParameters("shwekey", allowFemale = false, blockVideos = false, k = 100)
+        val params = zemerSearchParameters("shwekey", onlyAcappella = false, blockVideos = false, k = 100)
 
         assertEquals(
-            listOf("q", "allowFemale", "blockVideos", "k"),
+            listOf("q", "onlyAcappella", "blockVideos", "k"),
             params.map { it.first },
         )
         assertEquals("shwekey", params.toMap()["q"])

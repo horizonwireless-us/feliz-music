@@ -324,8 +324,16 @@ class App : Application(), SingletonImageLoader.Factory {
         if (settings[EnableContentFiltersKey] != true) {
             dataStore.edit { it[EnableContentFiltersKey] = true }
         }
-        if (!settings.contains(AllowFemaleSingersKey)) {
-            dataStore.edit { it[AllowFemaleSingersKey] = false }
+        // Acappella-only filter defaults to OFF (unrestricted music).
+        if (!settings.contains(AcappellaOnlyKey)) {
+            dataStore.edit { it[AcappellaOnlyKey] = false }
+        }
+        // Delete legacy female/passcode keys idempotently at startup; never map them to Acappella.
+        if (settings.contains(LegacyAllowFemaleSingersKey) || settings.contains(LegacyFemalePasscodeHashKey)) {
+            dataStore.edit {
+                it.remove(LegacyAllowFemaleSingersKey)
+                it.remove(LegacyFemalePasscodeHashKey)
+            }
         }
         if (!settings.contains(AllowChasidishKey)) {
             dataStore.edit { it[AllowChasidishKey] = false }
@@ -421,7 +429,7 @@ class App : Application(), SingletonImageLoader.Factory {
                 .map { prefs ->
                     ContentFilterConfig(
                         filtersEnabled = prefs[EnableContentFiltersKey] ?: true,
-                        allowFemaleSingers = prefs[AllowFemaleSingersKey] ?: false,
+                        acappellaOnly = prefs[AcappellaOnlyKey] ?: false,
                         blockVideos = prefs[BlockVideosKey] ?: false,
                         blockPodcasts = prefs[BlockPodcastsKey] ?: false,
                     )

@@ -33,7 +33,7 @@ object WhitelistCache {
 
     fun isAllowed(entry: ArtistWhitelistEntity, config: ContentFilterConfig): Boolean {
         if (config.filtersEnabled) {
-            if (!config.allowFemaleSingers && entry.isFemale) return false
+            if (config.acappellaOnly && !entry.isAcappella) return false
         }
         return true
     }

@@ -16,8 +16,8 @@ class SubsetLiveWhitelistTest {
 
     private fun corpus(
         artists: List<SubArtist> = listOf(
-            SubArtist("UC1", "Kept", null, isFemale = false, isChasid = false, isKidZone = false),
-            SubArtist("UC2", "Dropped", null, isFemale = false, isChasid = false, isKidZone = false),
+            SubArtist("UC1", "Kept", null, isAcappella = false, isChasid = false, isKidZone = false),
+            SubArtist("UC2", "Dropped", null, isAcappella = false, isChasid = false, isKidZone = false),
         ),
     ) = SubsetCorpus(
         artists = artists,
@@ -102,10 +102,10 @@ class SubsetLiveWhitelistTest {
     }
 
     @Test
-    fun `live isFemale overrides the shard flag`() {
+    fun `live isAcappella overrides the shard flag`() {
         val c = corpus().withLiveWhitelist(mapOf("UC1" to true, "UC2" to false))
-        assertTrue(c.artistsById.getValue("UC1").isFemale)
-        assertFalse(c.artistsById.getValue("UC2").isFemale)
+        assertTrue(c.artistsById.getValue("UC1").isAcappella)
+        assertFalse(c.artistsById.getValue("UC2").isAcappella)
     }
 
     // --- fingerprint (cache key for the overlaid corpus) ---

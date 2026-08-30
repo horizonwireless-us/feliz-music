@@ -6,7 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.jtech.felizmusic.auth.UserAuthManager
 import com.jtech.felizmusic.auth.AuthState
 import com.jtech.felizmusic.auth.WebViewGoogleAuthManager
-import com.jtech.felizmusic.constants.AllowFemaleSingersKey
+import com.jtech.felizmusic.constants.AcappellaOnlyKey
 import com.jtech.felizmusic.constants.BlockVideosKey
 import com.jtech.felizmusic.constants.EnableContentFiltersKey
 import com.jtech.felizmusic.sync.UserPreferencesRepository
@@ -163,11 +163,11 @@ class OnboardingViewModel @Inject constructor(
         // Auto-restore check will be handled in the UI with proper coroutine scope
         val prefs = context.getSharedPreferences("metrolist_settings", Context.MODE_PRIVATE)
         val hasEnableFilter = prefs.contains(EnableContentFiltersKey.name)
-        val hasFemaleSetting = prefs.contains(AllowFemaleSingersKey.name)
+        val hasAcappellaSetting = prefs.contains(AcappellaOnlyKey.name)
         val hasVideoSetting = prefs.contains(BlockVideosKey.name)
 
         // Only skip if ALL content filter settings are present
-        return hasEnableFilter && hasFemaleSetting && hasVideoSetting
+        return hasEnableFilter && hasAcappellaSetting && hasVideoSetting
     }
 
     /**

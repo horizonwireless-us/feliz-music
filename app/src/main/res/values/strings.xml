@@ -249,7 +249,7 @@
     <string name="logged_out">Logged out</string>
     <string name="report_artist">Report</string>
     <string name="report_artist_desc">Flag this for review</string>
-    <string name="report_reason_female">Female artist</string>
+    <string name="report_reason_acappella">Acappella artist</string>
     <string name="report_reason_gentile">Non-Jewish artist</string>
     <string name="report_reason_bad_playlists">Bad/goyish playlists</string>
     <string name="report_reason_bad_images">Bad images</string>
@@ -324,7 +324,7 @@
 
     <string name="new_version_available">New version available</string>
     <string name="content_filters">Content filters</string>
-    <string name="allow_female_singers">Allow female singers</string>
+    <string name="acappella_only">Acappella only</string>
     <string name="block_videos">Block videos</string>
     <string name="enable_personal_filters">Enable personal feed filters</string>
     <string name="i_am_chasidish">Promote chassidish content</string>

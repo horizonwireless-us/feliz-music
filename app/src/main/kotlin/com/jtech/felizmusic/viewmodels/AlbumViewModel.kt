@@ -83,12 +83,12 @@ constructor(
                         // stale-row cleanup runs only when the album 404s with the filters wide open
                         // (an unfiltered request needs no probe). A failed probe keeps the row.
                         notFound.value = true
-                        val flagsRestrictive = !options.allowFemale || options.blockVideos
+                        val flagsRestrictive = !options.onlyAcappella || options.blockVideos
                         val openFlags404 = if (!flagsRestrictive) true else runCatching {
                             zemerRepository.album(
                                 albumId,
                                 zemerPlaylistId,
-                                ZemerSearchOptions(allowFemale = true, blockVideos = false, hideExplicit = false),
+                                ZemerSearchOptions(onlyAcappella = false, blockVideos = false, hideExplicit = false),
                             ) == null
                         }.getOrNull()
                         if (staleAlbumGoneForEveryone(flagsRestrictive, openFlags404)) {

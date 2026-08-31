@@ -81,3 +81,9 @@ assembly, release compile, 16 KB check), `release.yml` (stable tag release),
 - Stable key: operator-managed, offline only, two backups. Nightly key:
   separate, CI-only, automated builds. Neither is committed.
 - CI `google-services.json` is generated from secrets per variant.
+- Release keystores are JKS files (converted from JDK 21 PKCS12 because Android
+  apksig cannot read that PKCS12 variant). JKS key passwords are independent of
+  the store password, so `KEY_PASSWORD` uses the real key-password secret
+  (`STABLE_KEY_PASSWORD` / `NIGHTLY_KEY_PASSWORD`), which matches
+  `feliz-secrets/android/signing-credentials.txt`. CI verifies each keystore
+  with `keytool -list -storetype JKS` before assembling.

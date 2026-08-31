@@ -52,9 +52,28 @@ jobs:
           echo "${{ secrets.NIGHTLY_KEYSTORE_BASE64 }}" | base64 -d > app/keystore/release.keystore
           {
             echo "STORE_PASSWORD=${{ secrets.NIGHTLY_STORE_PASSWORD }}"
+            # Release keystores are JKS (converted from JDK 21 PKCS12 because
+            # Android apksig cannot read that PKCS12 variant). JKS key passwords
+            # are independent of the store password, so KEY_PASSWORD uses the
+            # NIGHTLY_KEY_PASSWORD secret (matches signing-credentials.txt).
             echo "KEY_PASSWORD=${{ secrets.NIGHTLY_KEY_PASSWORD }}"
             echo "KEY_ALIAS=${{ secrets.NIGHTLY_KEY_ALIAS }}"
           } >> "$GITHUB_ENV"
+
+      - name: Verify nightly release keystore
+        run: |
+          if [ ! -s app/keystore/release.keystore ]; then
+            echo "::error::app/keystore/release.keystore is empty; NIGHTLY_KEYSTORE_BASE64 did not decode to a keystore."
+            exit 1
+          fi
+          if ! keytool -list \
+            -keystore app/keystore/release.keystore \
+            -storetype JKS \
+            -storepass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" >/dev/null; then
+            echo "::error::Could not open app/keystore/release.keystore with STORE_PASSWORD and alias '$KEY_ALIAS'. Check NIGHTLY_KEYSTORE_BASE64, NIGHTLY_STORE_PASSWORD, and NIGHTLY_KEY_ALIAS."
+            exit 1
+          fi
 
       - name: Assemble signed nightly release
         run: ./gradlew :app:assembleNightlyRelease -PfelizCipherPath=.deps/feliz-cipher -PfirebaseProjectId=feliz-music-admin

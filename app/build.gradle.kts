@@ -89,8 +89,15 @@ android {
             storeFile = file("keystore/release.keystore")
             storePassword = System.getenv("STORE_PASSWORD")
             keyAlias = System.getenv("KEY_ALIAS")
+            // Release keystores are JKS (converted from JDK 21 PKCS12 because
+            // Android apksig cannot read that PKCS12 variant). JKS key passwords
+            // are independent of the store password. Fall back to STORE_PASSWORD
+            // only when KEY_PASSWORD is unset or blank (local convenience); CI
+            // always sets KEY_PASSWORD from the key-password secret.
             keyPassword = System.getenv("KEY_PASSWORD")
-            storeType = "PKCS12"
+                ?.takeIf { it.isNotBlank() }
+                ?: System.getenv("STORE_PASSWORD")
+            storeType = "JKS"
         }
         getByName("debug") {
             keyAlias = "androiddebugkey"

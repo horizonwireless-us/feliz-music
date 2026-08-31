@@ -6,17 +6,17 @@ Every tracked non-Kotlin path outside `docs/` is listed. Text files report line 
 | --- | ---: | --- |
 | `.github/workflows/debug-build.yml` | 72 lines | text `.yml` |
 | `.github/workflows/docs-regenerate.yml` | 74 lines | text `.yml` |
-| `.github/workflows/nightly.yml` | 81 lines | text `.yml` |
+| `.github/workflows/nightly.yml` | 100 lines | text `.yml` |
 | `.github/workflows/pr-checks.yml` | 65 lines | text `.yml` |
-| `.github/workflows/release-build.yml` | 161 lines | text `.yml` |
-| `.github/workflows/release.yml` | 101 lines | text `.yml` |
+| `.github/workflows/release-build.yml` | 180 lines | text `.yml` |
+| `.github/workflows/release.yml` | 120 lines | text `.yml` |
 | `.github/workflows/ui-audit.yml` | 50 lines | text `.yml` |
 | `.gitignore` | 121 lines | text `[none]` |
-| `AGENTS.md` | 83 lines | text `.md` |
+| `AGENTS.md` | 89 lines | text `.md` |
 | `LICENSE` | 674 lines | text `[none]` |
 | `README.md` | 12 lines | text `.md` |
 | `app/.gitignore` | 1 lines | text `[none]` |
-| `app/build.gradle.kts` | 326 lines | text `.kts`; plugins `com.android.application, android, kotlin.serialization, hilt, kotlin.ksp, compose.compiler, google.gms.google.services, firebase.crashlytics, rikka.tools.refine` |
+| `app/build.gradle.kts` | 333 lines | text `.kts`; plugins `com.android.application, android, kotlin.serialization, hilt, kotlin.ksp, compose.compiler, google.gms.google.services, firebase.crashlytics, rikka.tools.refine` |
 | `app/lint.xml` | 12 lines | text `.xml`; XML root `lint` |
 | `app/proguard-rules.pro` | 269 lines | text `.pro` |
 | `app/schemas/com.jtech.felizmusic.db.InternalDatabase/1.json` | 297 lines | text `.json`; JSON keys `formatVersion, database` |

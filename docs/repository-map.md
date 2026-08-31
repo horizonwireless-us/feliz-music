@@ -114,17 +114,17 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | --- | ---: | --- |
 | `.github/workflows/debug-build.yml` | 72 lines | `.yml` |
 | `.github/workflows/docs-regenerate.yml` | 74 lines | `.yml` |
-| `.github/workflows/nightly.yml` | 81 lines | `.yml` |
+| `.github/workflows/nightly.yml` | 100 lines | `.yml` |
 | `.github/workflows/pr-checks.yml` | 65 lines | `.yml` |
-| `.github/workflows/release-build.yml` | 161 lines | `.yml` |
-| `.github/workflows/release.yml` | 101 lines | `.yml` |
+| `.github/workflows/release-build.yml` | 180 lines | `.yml` |
+| `.github/workflows/release.yml` | 120 lines | `.yml` |
 | `.github/workflows/ui-audit.yml` | 50 lines | `.yml` |
 | `.gitignore` | 121 lines | `[none]` |
-| `AGENTS.md` | 83 lines | `.md` |
+| `AGENTS.md` | 89 lines | `.md` |
 | `LICENSE` | 674 lines | `[none]` |
 | `README.md` | 12 lines | `.md` |
 | `app/.gitignore` | 1 lines | `[none]` |
-| `app/build.gradle.kts` | 326 lines | `.kts` |
+| `app/build.gradle.kts` | 333 lines | `.kts` |
 | `app/lint.xml` | 12 lines | `.xml` |
 | `app/proguard-rules.pro` | 269 lines | `.pro` |
 | `app/schemas/com.jtech.felizmusic.db.InternalDatabase/1.json` | 297 lines | `.json` |
@@ -1366,7 +1366,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `docs/app/playback.md` | 39 lines | `.md` |
 | `docs/app/preferences-sync-auth.md` | 153 lines | `.md` |
 | `docs/app/viewmodels.md` | 37 lines | `.md` |
-| `docs/build-release.md` | 67 lines | `.md` |
+| `docs/build-release.md` | 68 lines | `.md` |
 | `docs/fcast/01-architecture.md` | 116 lines | `.md` |
 | `docs/fcast/02-on-demand-native-lib.md` | 134 lines | `.md` |
 | `docs/fcast/03-discovery-and-connection.md` | 253 lines | `.md` |

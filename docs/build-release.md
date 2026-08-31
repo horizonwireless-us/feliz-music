@@ -33,7 +33,8 @@
 | Install pinned native build components | run: `yes \| sdkmanager --licenses >/dev/null 2>&1 \|\| true` |
 | Configure Android SDK path | run: `echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties` |
 | Configure Firebase | run: `echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" \| base64 -d > app/google-services.json` |
-| Configure release keystore | run: `mkdir -p app/keystore` |
+| Configure stable release keystore | run: `mkdir -p app/keystore` |
+| Verify stable release keystore | run: `if [ ! -s app/keystore/release.keystore ]; then` |
 | Assemble signed release | run: `./gradlew :app:assembleStableRelease -PfelizCipherPath=.deps/feliz-cipher -PfirebaseProjec` |
 | Check 16 KB page-size alignment | run: `bash scripts/check-16kb-alignment.sh app/build/outputs/apk/stable/release/*.apk` |
 | Upload Crashlytics native symbols | run: `./gradlew :app:uploadCrashlyticsSymbolFileStableRelease -PfelizCipherPath=.deps/feliz-ciph` |

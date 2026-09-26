@@ -28,8 +28,9 @@ jobs:
         with:
           cache-read-only: true
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub-hosted ubuntu runners ship an Android SDK with accepted licenses;
+      # android-actions/setup-android@v3 is NOT used because it runs `sdkmanager
+      # tools`, and the legacy `tools` package no longer exists in the SDK repo.
 
       - name: Install pinned native build components
         run: |

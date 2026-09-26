@@ -4,12 +4,12 @@ Every tracked non-Kotlin path outside `docs/` is listed. Text files report line 
 
 | Path | Size/status | Type metadata |
 | --- | ---: | --- |
-| `.github/workflows/debug-build.yml` | 73 lines | text `.yml` |
+| `.github/workflows/debug-build.yml` | 82 lines | text `.yml` |
 | `.github/workflows/docs-regenerate.yml` | 74 lines | text `.yml` |
-| `.github/workflows/nightly.yml` | 101 lines | text `.yml` |
-| `.github/workflows/pr-checks.yml` | 66 lines | text `.yml` |
-| `.github/workflows/release-build.yml` | 181 lines | text `.yml` |
-| `.github/workflows/release.yml` | 121 lines | text `.yml` |
+| `.github/workflows/nightly.yml` | 110 lines | text `.yml` |
+| `.github/workflows/pr-checks.yml` | 75 lines | text `.yml` |
+| `.github/workflows/release-build.yml` | 190 lines | text `.yml` |
+| `.github/workflows/release.yml` | 130 lines | text `.yml` |
 | `.github/workflows/ui-audit.yml` | 50 lines | text `.yml` |
 | `.gitignore` | 121 lines | text `[none]` |
 | `AGENTS.md` | 89 lines | text `.md` |

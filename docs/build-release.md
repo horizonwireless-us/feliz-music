@@ -29,6 +29,7 @@
 | Check out pinned cipher | run: `bash scripts/checkout-cipher.sh` |
 | Set up JDK 21 | `actions/setup-java@v4` (distribution=`temurin`, java-version=`21`) |
 | Setup Gradle | `gradle/actions/setup-gradle@v4` |
+| Set up Android SDK environment | run: `SDK_ROOT="${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}"` |
 | Install pinned native build components | run: `yes \| sdkmanager --licenses >/dev/null 2>&1 \|\| true` |
 | Configure Android SDK path | run: `echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties` |
 | Configure Firebase | run: `echo "${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}" \| base64 -d > app/google-services.json` |

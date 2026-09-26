@@ -112,12 +112,12 @@ The following inventory is generated from repository files outside `.git`, `.gra
 
 | Path | Lines/bytes | Kind |
 | --- | ---: | --- |
-| `.github/workflows/debug-build.yml` | 72 lines | `.yml` |
+| `.github/workflows/debug-build.yml` | 73 lines | `.yml` |
 | `.github/workflows/docs-regenerate.yml` | 74 lines | `.yml` |
-| `.github/workflows/nightly.yml` | 100 lines | `.yml` |
-| `.github/workflows/pr-checks.yml` | 65 lines | `.yml` |
-| `.github/workflows/release-build.yml` | 180 lines | `.yml` |
-| `.github/workflows/release.yml` | 120 lines | `.yml` |
+| `.github/workflows/nightly.yml` | 101 lines | `.yml` |
+| `.github/workflows/pr-checks.yml` | 66 lines | `.yml` |
+| `.github/workflows/release-build.yml` | 181 lines | `.yml` |
+| `.github/workflows/release.yml` | 121 lines | `.yml` |
 | `.github/workflows/ui-audit.yml` | 50 lines | `.yml` |
 | `.gitignore` | 121 lines | `[none]` |
 | `AGENTS.md` | 89 lines | `.md` |
@@ -1366,7 +1366,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `docs/app/playback.md` | 39 lines | `.md` |
 | `docs/app/preferences-sync-auth.md` | 153 lines | `.md` |
 | `docs/app/viewmodels.md` | 37 lines | `.md` |
-| `docs/build-release.md` | 68 lines | `.md` |
+| `docs/build-release.md` | 67 lines | `.md` |
 | `docs/fcast/01-architecture.md` | 116 lines | `.md` |
 | `docs/fcast/02-on-demand-native-lib.md` | 134 lines | `.md` |
 | `docs/fcast/03-discovery-and-connection.md` | 253 lines | `.md` |

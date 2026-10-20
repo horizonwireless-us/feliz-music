@@ -1,0 +1,81 @@
+rules_version = '2';
+
+// Firestore security rules for the feliz-music-admin project.
+//
+// These rules are the live source of truth for client access to Firestore.
+// The console copy and this file MUST be kept in sync: publishing different
+// rules in the console silently diverges from what the app was built against
+// (see docs/playback-debugging-report.md for the same class of failure with
+// the cipher config URL — config that lives only in one mutable place).
+//
+// Deploy with the Firebase CLI:
+//   firebase deploy --only firestore:rules
+// (requires `firebase login` and a .firebaserc pointing at feliz-music-admin,
+//  or pass --project feliz-music-admin explicitly)
+//
+// IMPORTANT — the artistReports create rule validates the exact payload the
+// app sends. If ContentReportRepository.kt or any ReportContentDialog call
+// site adds a subject field (SongMenu / AlbumMenu / ArtistMenu / PlaylistMenu /
+// PlayerMenu / SelectionSongsMenu / YouTubeAlbumMenu / YouTubeArtistMenu),
+// add it to the hasOnly() list here or reports will fail with
+// PERMISSION_DENIED.
+//
+// Admin tooling (the private admin APK / any future VPS dashboard) uses a
+// service account via the Admin SDK, which BYPASSES these rules entirely —
+// that is why read/update of artistReports can stay `if false` for clients.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Public curated content (read-only for clients) ----
+    // The music clients and mirror need unauthenticated read access to
+    // curated data. Only admin tooling (service account, IAM-bypassing)
+    // ever writes these.
+    match /artistsWhitelist/{id}        { allow read: if true; allow write: if false; }
+    match /blockedContentIds/{id}       { allow read: if true; allow write: if false; }
+    match /podcastsWhitelist/{id}      { allow read: if true; allow write: if false; }
+    match /podcastChannelsWhitelist/{id} { allow read: if true; allow write: if false; }
+    match /databasenumber/{id}          { allow read: if true; allow write: if false; }
+    match /podcastDatabaseNumber/{id}   { allow read: if true; allow write: if false; }
+    match /israeliArtists/{id}          { allow read: if true; allow write: if false; }
+
+    // ---- Per-user data ----
+    // A signed-in user can read/write only their own preferences document.
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Reports and device preferences are not public content.
+    match /devicePreferences/{id} { allow read, write: if false; }
+
+    // ---- User content reports (the reporting queue) ----
+    // Anyone (including anonymous sessions, reporterUid == "anon") can FILE
+    // a report — create only. The payload is validated so a hostile or
+    // modified client cannot dump arbitrary JSON into the queue or pre-mark
+    // a report as resolved.
+    //
+    // Allowed subject keys (exactly what the app sends, verified against all
+    // seven ReportContentDialog call sites 2026-10-20):
+    //   song:    songId, songTitle, artistId, artistName
+    //   album:   albumId, albumTitle, artistId, artistName
+    //   artist:  artistId, artistName
+    //   playlist: playlistId, playlistName
+    // Repository-controlled keys: reason, comment, status, reporterUid, createdAt.
+    match /artistReports/{doc} {
+      allow create: if request.resource.data.keys().hasOnly(
+        ['songId','songTitle','artistId','artistName','albumId','albumTitle','playlistId','playlistName',
+         'reason','comment','status','reporterUid','createdAt'])
+        && request.resource.data.reason in ['acappella','gentile','bad_playlists','bad_images','other']
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() < 2000
+        && request.resource.data.status == 'pending';
+
+      // Clients can never read or modify reports. Review tooling must use a
+      // service account (Admin SDK), which bypasses these rules.
+      allow read, update, delete: if false;
+    }
+
+    // ---- Deny everything else by default ----
+    match /{document=**} { allow read, write: if false; }
+  }
+}

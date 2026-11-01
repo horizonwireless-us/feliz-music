@@ -1288,10 +1288,16 @@ class MainActivity : ComponentActivity() {
                                             canFocus = drawerState.isOpen
                                         }
                                 ) {
+                                    // Keep every entry in the scroll container so short screens and
+                                    // D-pad bringIntoView requests can reach the bottom of the menu.
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .verticalScroll(drawerScrollState)
+                                    ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
                                             .padding(horizontal = 16.dp, vertical = 12.dp),
                                         horizontalAlignment = Alignment.Start
                                     ) {
@@ -1502,6 +1508,7 @@ class MainActivity : ComponentActivity() {
                                                 }
                                             }
                                     )
+                                    }
                                 }
                             }
                         ) {

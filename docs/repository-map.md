@@ -77,7 +77,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 
 ### Counts
 
-- Files counted: `1521`
+- Files counted: `1522`
 - By extension:
   - `.kt`: `770`
   - `.xml`: `196`
@@ -105,6 +105,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
   - `.jar`: `1`
   - `.lock`: `1`
   - `.pro`: `1`
+  - `.rules`: `1`
   - `.toml`: `1`
   - `.tsv`: `1`
 
@@ -479,7 +480,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `app/src/main/kotlin/com/dpi/DensityConfiguration.kt` | 87 lines | `.kt` |
 | `app/src/main/kotlin/com/dpi/DensityScaler.kt` | 46 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/App.kt` | 548 lines | `.kt` |
-| `app/src/main/kotlin/com/jtech/felizmusic/MainActivity.kt` | 2394 lines | `.kt` |
+| `app/src/main/kotlin/com/jtech/felizmusic/MainActivity.kt` | 2401 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/accessibility/ButtonMapperAccessibilityService.kt` | 45 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/auth/AuthState.kt` | 57 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/auth/UserAuthManager.kt` | 145 lines | `.kt` |
@@ -867,7 +868,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/search/OnlineSearchResult.kt` | 522 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/search/OnlineSearchScreen.kt` | 531 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/search/SearchFilterPolicy.kt` | 26 lines | `.kt` |
-| `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/settings/AboutScreen.kt` | 455 lines | `.kt` |
+| `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/settings/AboutScreen.kt` | 445 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/settings/AccountSettings.kt` | 518 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/settings/AndroidAutoSettings.kt` | 273 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/screens/settings/AppearanceSettings.kt` | 1115 lines | `.kt` |
@@ -1223,7 +1224,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `app/src/main/res/values/app_name.xml` | 4 lines | `.xml` |
 | `app/src/main/res/values/colors.xml` | 9 lines | `.xml` |
 | `app/src/main/res/values/ic_launcher_background.xml` | 6 lines | `.xml` |
-| `app/src/main/res/values/metrolist_strings.xml` | 703 lines | `.xml` |
+| `app/src/main/res/values/metrolist_strings.xml` | 701 lines | `.xml` |
 | `app/src/main/res/values/strings.xml` | 438 lines | `.xml` |
 | `app/src/main/res/values/styles.xml` | 26 lines | `.xml` |
 | `app/src/main/res/values/values.xml` | 8 lines | `.xml` |
@@ -1404,7 +1405,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `docs/recognize_music/06-testing-and-maintenance.md` | 54 lines | `.md` |
 | `docs/recognize_music/README.md` | 71 lines | `.md` |
 | `docs/reference/kotlin-files.md` | 793 lines | `.md` |
-| `docs/reference/non-kotlin-files.md` | 691 lines | `.md` |
+| `docs/reference/non-kotlin-files.md` | 692 lines | `.md` |
 | `docs/reference/resource-index.md` | 255 lines | `.md` |
 | `docs/remote_cipher_config/01-why-it-exists.md` | 88 lines | `.md` |
 | `docs/remote_cipher_config/02-file-format.md` | 116 lines | `.md` |
@@ -1414,7 +1415,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `docs/remote_cipher_config/06-harness-and-monitor.md` | 101 lines | `.md` |
 | `docs/remote_cipher_config/07-runbook.md` | 101 lines | `.md` |
 | `docs/remote_cipher_config/README.md` | 112 lines | `.md` |
-| `docs/repository-map.md` | 1635 lines | `.md` |
+| `docs/repository-map.md` | 1637 lines | `.md` |
 | `docs/stations/README.md` | 69 lines | `.md` |
 | `docs/status/README.md` | 122 lines | `.md` |
 | `docs/status/jewishstatus-api.md` | 162 lines | `.md` |
@@ -1426,6 +1427,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `docs/watchtime/README.md` | 278 lines | `.md` |
 | `docs/whitelist/README.md` | 253 lines | `.md` |
 | `docs/zemer_playlists/README.md` | 110 lines | `.md` |
+| `firestore.rules` | 81 lines | `.rules` |
 | `gradle.properties` | 40 lines | `.properties` |
 | `gradle/libs.versions.toml` | 158 lines | `.toml` |
 | `gradle/wrapper/gradle-wrapper.jar` | 45457 bytes | `.jar` |

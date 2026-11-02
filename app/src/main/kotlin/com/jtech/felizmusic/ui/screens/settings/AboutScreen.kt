@@ -95,6 +95,12 @@ private val leadDevelopers = listOf(
         jtechForumsUrl = "https://forums.jtechforums.org/u/TripleU",
         websiteUrl = "https://tripleu.org/",
     ),
+    Contributor(
+        name = "4dev-wireless",
+        roleRes = R.string.about_lead_developer,
+        githubHandle = "4dev-wireless",
+        jtechForumsUrl = "https://jtechforums.org/u/4dev/summary",
+    ),
 )
 
 private val collaborators = listOf(
@@ -112,10 +118,8 @@ private val collaborators = listOf(
     ),
 )
 
-private const val ZEMER_TEAM_URL = "https://github.com/ZemerTeam"
-private const val RELEASES_URL = "https://forums.jtechforums.org/t/zemer-official-release/5144"
-private const val DISCUSSION_URL = "https://forums.jtechforums.org/t/zemer-bugs-comments-and-feedback/5160"
-private const val SOURCE_URL = "https://github.com/ZemerTeam/zemer-app"
+private const val FELIZ_TEAM_URL = "https://github.com/horizonwireless-us"
+private const val SOURCE_URL = "https://github.com/horizonwireless-us/feliz-music"
 private const val METROLIST_URL = "https://github.com/metrolistgroup/metrolist"
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -197,9 +201,9 @@ fun AboutScreen(
                         )
                     }
 
-                    // The ZemerTeam GitHub org owns the app, so its link sits with the app identity.
+                    // Link the Feliz Music GitHub organization alongside the app identity.
                     AssistChip(
-                        onClick = { uriHandler.openUri(ZEMER_TEAM_URL) },
+                        onClick = { uriHandler.openUri(FELIZ_TEAM_URL) },
                         label = { Text(stringResource(R.string.about_zemer_team)) },
                         colors = aboutChipColors(),
                         leadingIcon = {
@@ -263,20 +267,6 @@ fun AboutScreen(
         SectionTitle(stringResource(R.string.about_links))
         SettingsCardGroup(
             rows = listOf(
-                {
-                    PreferenceEntry(
-                        title = { Text(stringResource(R.string.about_releases)) },
-                        icon = { Icon(painterResource(R.drawable.link), null) },
-                        onClick = { uriHandler.openUri(RELEASES_URL) },
-                    )
-                },
-                {
-                    PreferenceEntry(
-                        title = { Text(stringResource(R.string.about_discussion)) },
-                        icon = { Icon(painterResource(R.drawable.link), null) },
-                        onClick = { uriHandler.openUri(DISCUSSION_URL) },
-                    )
-                },
                 {
                     PreferenceEntry(
                         title = { Text(stringResource(R.string.about_source_code)) },

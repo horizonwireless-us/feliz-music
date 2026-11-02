@@ -1,6 +1,6 @@
 {
   "repo": "https://github.com/horizonwireless-us/feliz-cipher.git",
   "path": ".deps/feliz-cipher",
-  "commit": "801a38012e494ebc420c754d396a542c99c01180",
+  "commit": "8fbfa099927aa7c918d5a03b2f05a1aacd120826",
   "note": "Exact cipher commit expected by Android CI. Update only by operator review after validating player_configs.json and player_dates.json. CI checks out this commit into .deps/feliz-cipher; .deps/ remains ignored. Local builds default to the sibling ../feliz-cipher checkout."
 }

@@ -49,11 +49,13 @@ fun ReportContentDialog(
     var selectedReason by remember { mutableStateOf("") }
     var comment by remember { mutableStateOf("") }
 
+    // The legacy gentile reason is hidden from the UI only; retain its backend
+    // reason and string resource for compatibility.
     val reasons = listOf(
         "acappella" to stringResource(R.string.report_reason_acappella),
-        "gentile" to stringResource(R.string.report_reason_gentile),
-        "bad_playlists" to stringResource(R.string.report_reason_bad_playlists),
+        // "gentile" to stringResource(R.string.report_reason_gentile),
         "bad_images" to stringResource(R.string.report_reason_bad_images),
+        "bad_playlists" to stringResource(R.string.report_reason_bad_playlists),
         "other" to stringResource(R.string.report_reason_other),
     )
 

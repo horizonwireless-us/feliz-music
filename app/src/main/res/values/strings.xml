@@ -249,10 +249,10 @@
     <string name="logged_out">Logged out</string>
     <string name="report_artist">Report</string>
     <string name="report_artist_desc">Flag this for review</string>
-    <string name="report_reason_acappella">Acappella artist</string>
+    <string name="report_reason_acappella">Non-acappella</string>
     <string name="report_reason_gentile">Non-Jewish artist</string>
-    <string name="report_reason_bad_playlists">Bad/goyish playlists</string>
-    <string name="report_reason_bad_images">Bad images</string>
+    <string name="report_reason_bad_playlists">Inappropriate content</string>
+    <string name="report_reason_bad_images">Inappropriate artwork</string>
     <string name="report_reason_other">Other</string>
     <string name="report_optional_comment">Optional comment</string>
     <string name="report_submit">Submit</string>

@@ -306,7 +306,7 @@ Every tracked Kotlin file is listed with hard metadata extracted from the file t
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/PlayerMenu.kt` | 531 | `com.jtech.felizmusic.ui.menu` | yes | 78 | 34 | android.content, android.media, androidx.activity, androidx.annotation, androidx.compose, androidx.media3, androidx.navigation, kotlin.math, kotlinx.coroutines |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/PlaylistMenu.kt` | 232 | `com.jtech.felizmusic.ui.menu` | yes | 50 | 12 | androidx.compose, kotlinx.coroutines |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/PodcastChannelMenu.kt` | 184 | `com.jtech.felizmusic.ui.menu` | yes | 42 | 7 | androidx.compose, androidx.navigation, coil3.compose, coil3.request |
-| `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/ReportContentDialog.kt` | 130 | `com.jtech.felizmusic.ui.menu` | yes | 31 | 8 | androidx.compose, androidx.hilt, kotlinx.coroutines |
+| `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/ReportContentDialog.kt` | 132 | `com.jtech.felizmusic.ui.menu` | yes | 31 | 8 | androidx.compose, androidx.hilt, kotlinx.coroutines |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/SavedStatusMenu.kt` | 113 | `com.jtech.felizmusic.ui.menu` | yes | 32 | 1 | androidx.compose, coil3.compose, coil3.request |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/SelectionSongsMenu.kt` | 604 | `com.jtech.felizmusic.ui.menu` | yes | 52 | 43 | android.annotation, androidx.compose, androidx.media3, java.time, kotlinx.coroutines |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/SongMenu.kt` | 561 | `com.jtech.felizmusic.ui.menu` | yes | 80 | 38 | androidx.activity, androidx.compose, androidx.hilt, androidx.navigation, kotlinx.coroutines |

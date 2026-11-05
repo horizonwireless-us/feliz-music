@@ -775,7 +775,7 @@ The following inventory is generated from repository files outside `.git`, `.gra
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/PlayerMenu.kt` | 531 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/PlaylistMenu.kt` | 232 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/PodcastChannelMenu.kt` | 184 lines | `.kt` |
-| `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/ReportContentDialog.kt` | 130 lines | `.kt` |
+| `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/ReportContentDialog.kt` | 132 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/SavedStatusMenu.kt` | 113 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/SelectionSongsMenu.kt` | 604 lines | `.kt` |
 | `app/src/main/kotlin/com/jtech/felizmusic/ui/menu/SongMenu.kt` | 561 lines | `.kt` |
